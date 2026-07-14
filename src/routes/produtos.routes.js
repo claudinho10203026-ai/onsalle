@@ -105,15 +105,34 @@ router.get('/loja/:lojaId/gerenciar', autenticar, async (req, res) => {
 
 // Editar produto
 router.put('/:id', autenticar, async (req, res) => {
-  const { data, error } = await req.supabase
+  const { fotos, ...atualizacao } = req.body;
+
+  const { data: produtoAtualizado, error: errorProduto } = await req.supabase
     .from('produtos')
-    .update(req.body)
+    .update(atualizacao)
     .eq('id', req.params.id)
     .select()
     .single();
 
-  if (error) return res.status(400).json({ erro: error.message });
-  res.json(data);
+  if (errorProduto) return res.status(400).json({ erro: errorProduto.message });
+
+  if (Array.isArray(fotos)) {
+    // Substitui as fotos atuais pela nova lista enviada pelo cliente.
+    const { error: deleteError } = await req.supabase
+      .from('produto_fotos')
+      .delete()
+      .eq('produto_id', req.params.id);
+
+    if (deleteError) return res.status(400).json({ erro: deleteError.message });
+
+    if (fotos.length) {
+      const linhas = fotos.map((url, i) => ({ produto_id: req.params.id, url, ordem: i }));
+      const { error: insertError } = await req.supabase.from('produto_fotos').insert(linhas);
+      if (insertError) return res.status(400).json({ erro: insertError.message });
+    }
+  }
+
+  res.json(produtoAtualizado);
 });
 
 // Excluir produto
