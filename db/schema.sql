@@ -430,6 +430,14 @@ begin
   left join auth.users u on u.id = v_cliente_id
   where p.id = v_cliente_id;
 
+  if trim(coalesce(v_cliente_email, '')) = '' then
+    raise exception 'Seu email precisa estar cadastrado no perfil para finalizar o pedido.';
+  end if;
+
+  if trim(coalesce(v_cliente_telefone, '')) = '' then
+    raise exception 'Seu telefone precisa estar cadastrado no perfil para finalizar o pedido.';
+  end if;
+
   insert into public.pedidos (cliente_id, loja_id, cliente_nome, cliente_telefone, cliente_email, forma_pagamento, parcelas, status, total)
   values (v_cliente_id, v_loja_id, v_cliente_nome, v_cliente_telefone, v_cliente_email, 'WhatsApp', 1, 'pendente', 0)
   returning id into v_pedido_id;

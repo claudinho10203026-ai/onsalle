@@ -1175,14 +1175,14 @@
         }
         const { data, error } = await state.supabase
           .from('perfis')
-          .select('telefone')
+          .select('nome, telefone')
           .eq('id', state.usuario.id)
           .single();
 
         if (!error && data) {
           state.perfil = data;
         } else {
-          state.perfil = { telefone: '' };
+          state.perfil = { nome: state.usuario.user_metadata?.full_name || '', telefone: '' };
           if (error && error.message !== 'No rows found') {
             console.warn('Não foi possível carregar o perfil:', error.message);
           }
@@ -1256,6 +1256,29 @@
         if (error) return alert(error.message || 'Não foi possível atualizar o perfil.');
         state.perfil = data;
         alert('Telefone salvo com sucesso.');
+        render();
+      }
+
+      async function atualizarNomePerfil() {
+        if (!state.usuario || !state.token) {
+          return alert('Faça login para atualizar seu perfil.');
+        }
+        const nome = prompt('Digite seu nome completo', state.perfil?.nome || state.usuario.user_metadata?.full_name || '');
+        if (nome === null) return;
+        const { error } = await state.supabase.auth.updateUser({ data: { full_name: nome } });
+        if (error) return alert(error.message || 'Não foi possível atualizar o nome.');
+
+        const { data, error: perfilError } = await state.supabase
+          .from('perfis')
+          .update({ nome })
+          .eq('id', state.usuario.id)
+          .select()
+          .single();
+
+        if (perfilError) return alert(perfilError.message || 'Não foi possível atualizar o perfil.');
+        state.usuario.user_metadata = { ...state.usuario.user_metadata, full_name: nome };
+        state.perfil = data;
+        alert('Nome atualizado com sucesso.');
         render();
       }
 
@@ -1924,15 +1947,7 @@
         showPage('minhas-lojas');
         document.getElementById('lojaNome').focus();
       };
-      window.editarPerfil = async () => {
-        const nome = prompt('Digite seu nome completo', state.usuario.user_metadata?.full_name || '');
-        if (nome === null) return;
-        const { data, error } = await state.supabase.auth.updateUser({ data: { full_name: nome } });
-        if (error) return alert(error.message || 'Não foi possível atualizar o perfil.');
-        state.usuario = data.user || state.usuario;
-        render();
-        alert('Perfil atualizado com sucesso');
-      };
+      window.editarPerfil = atualizarNomePerfil;
       window.selecionarLoja = async (lojaId) => {
         state.lojaSelecionada = lojaId;
         state.lojaSelecionadaManual = true;
