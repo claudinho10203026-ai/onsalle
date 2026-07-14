@@ -199,12 +199,11 @@
         .hero h1 { font-size: 24px; }
       }
       @media (max-width: 992px) {
-        .sidebar { transform: translateX(-100%); width: var(--sb-sidebar-width); }
-        .sidebar.open { transform: translateX(0); }
-        .sidebar-overlay { display: block; }
+        .sidebar { display: none !important; }
+        .sidebar-overlay { display: none !important; }
         .main-content { margin-left: 0; padding: 16px 16px 30px; }
         .sidebar.collapsed + .main-content { margin-left: 0; }
-        .mobile-only { display: inline-flex; }
+        .mobile-only { display: none; }
         .content-topbar { flex-direction: column; align-items: flex-start; gap: 10px; }
       }
       @media (max-width: 640px) {
@@ -733,22 +732,25 @@
 
         document.getElementById('logoutBtn').addEventListener('click', () => logout());
 
-        document.getElementById('mobileMenuBtn').addEventListener('click', () => {
-          document.getElementById('appSidebar').classList.toggle('open');
-          document.getElementById('sidebarOverlay').classList.toggle('active');
-        });
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        if (mobileMenuBtn) {
+          mobileMenuBtn.remove();
+        }
 
-        document.getElementById('sidebarOverlay').addEventListener('click', closeSidebar);
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        if (sidebarOverlay) {
+          sidebarOverlay.remove();
+        }
 
-        document.getElementById('sidebarToggleBtn').addEventListener('click', () => {
-          const sidebar = document.getElementById('appSidebar');
-          if (window.innerWidth <= 992) {
-            sidebar.classList.toggle('open');
-            document.getElementById('sidebarOverlay').classList.toggle('active');
-          } else {
-            sidebar.classList.toggle('collapsed');
-          }
-        });
+        const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+        if (sidebarToggleBtn) {
+          sidebarToggleBtn.remove();
+        }
+
+        const appSidebar = document.getElementById('appSidebar');
+        if (window.innerWidth <= 992 && appSidebar) {
+          appSidebar.style.display = 'none';
+        }
 
         document.getElementById('btnHomeToVitrine').addEventListener('click', () => {
           window.location.hash = 'vitrine';
