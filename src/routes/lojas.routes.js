@@ -6,7 +6,23 @@ const router = express.Router();
 
 // Criar loja (é assim que um cliente "vira vendedor")
 router.post('/', autenticar, async (req, res) => {
-  const { nome, descricao, whatsapp, endereco, latitude, longitude, documento, tipo_documento } = req.body;
+  const {
+    nome,
+    descricao,
+    whatsapp,
+    endereco,
+    latitude,
+    longitude,
+    documento,
+    tipo_documento,
+    logo_url,
+    cover_url,
+    primary_color,
+    secondary_color,
+    accent_color,
+    hero_title,
+    hero_subtitle
+  } = req.body;
 
   if (!nome || !whatsapp) {
     return res.status(400).json({ erro: 'nome e whatsapp são obrigatórios' });
@@ -23,7 +39,14 @@ router.post('/', autenticar, async (req, res) => {
       latitude,
       longitude,
       documento,
-      tipo_documento: tipo_documento || 'cpf'
+      tipo_documento: tipo_documento || 'cpf',
+      logo_url,
+      cover_url,
+      primary_color,
+      secondary_color,
+      accent_color,
+      hero_title,
+      hero_subtitle
     })
     .select()
     .single();

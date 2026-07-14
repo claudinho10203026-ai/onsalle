@@ -3,6 +3,7 @@ const { autenticar } = require('../middleware/auth');
 const { supabaseAdmin } = require('../config/supabaseClient');
 
 const router = express.Router();
+const BUCKET_NAME = process.env.SUPABASE_STORAGE_BUCKET || 'vitrine';
 
 // Vitrine pública de uma loja - usa a view sem quantidade_estoque
 router.get('/loja/:lojaId/vitrine', async (req, res) => {
@@ -19,13 +20,61 @@ router.get('/loja/:lojaId/vitrine', async (req, res) => {
   res.json(data);
 });
 
+// Upload real de foto para o Supabase Storage
+router.post('/upload-foto', autenticar, async (req, res) => {
+  const { fileName, contentType, dataUrl } = req.body;
+
+  if (!dataUrl || !fileName) {
+    return res.status(400).json({ erro: 'fileName e dataUrl são obrigatórios' });
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(503).json({ erro: 'Supabase Storage não configurado. Defina as credenciais de service role no .env.' });
+  }
+
+  try {
+    const matches = dataUrl.match(/^data:(.+);base64,(.+)$/);
+    if (!matches) throw new Error('Data URL inválida');
+
+    const buffer = Buffer.from(matches[2], 'base64');
+    const safeName = String(fileName)
+      .normalize('NFD')
+      .replace(/[^\w.-]/g, '-')
+      .replace(/-+/g, '-')
+      .toLowerCase();
+    const pathName = `${Date.now()}-${safeName}`;
+
+    let uploadResult = await supabaseAdmin.storage.from(BUCKET_NAME).upload(pathName, buffer, {
+      contentType: contentType || 'image/jpeg',
+      upsert: true
+    });
+
+    if (uploadResult.error && /not found|bucket/i.test(uploadResult.error.message || '')) {
+      await supabaseAdmin.storage.createBucket(BUCKET_NAME, { public: true });
+      uploadResult = await supabaseAdmin.storage.from(BUCKET_NAME).upload(pathName, buffer, {
+        contentType: contentType || 'image/jpeg',
+        upsert: true
+      });
+    }
+
+    if (uploadResult.error) {
+      return res.status(400).json({ erro: uploadResult.error.message });
+    }
+
+    const { data: publicUrlData } = supabaseAdmin.storage.from(BUCKET_NAME).getPublicUrl(pathName);
+    return res.json({ url: publicUrlData.publicUrl });
+  } catch (error) {
+    return res.status(400).json({ erro: error.message || 'Falha ao enviar a imagem' });
+  }
+});
+
 // Cadastrar produto (dono da loja)
 router.post('/', autenticar, async (req, res) => {
-  const { loja_id, categoria_id, nome, descricao, preco, quantidade_estoque, fotos } = req.body;
+  const { loja_id, categoria_id, nome, descricao, preco, quantidade_estoque, fotos, destaque } = req.body;
 
   const { data: produto, error } = await req.supabase
     .from('produtos')
-    .insert({ loja_id, categoria_id, nome, descricao, preco, quantidade_estoque })
+    .insert({ loja_id, categoria_id, nome, descricao, preco, quantidade_estoque, destaque: Boolean(destaque) })
     .select()
     .single();
 

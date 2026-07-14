@@ -155,6 +155,22 @@
       .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: var(--sb-accent-dim); color: var(--sb-accent); font-size: 12px; font-weight: 600; }
       .store-card, .product-card { background: var(--sb-surface); border: 1px solid var(--sb-border); border-radius: 16px; padding: 16px; box-shadow: var(--sb-shadow); }
       .store-card img, .product-card img { width: 100%; height: 160px; object-fit: cover; border-radius: 12px; margin-bottom: 12px; background: var(--sb-elevated); }
+      .store-preview-card { margin-top: 14px; border: 1px solid var(--sb-border); border-radius: 16px; overflow: hidden; background: var(--sb-elevated); box-shadow: var(--sb-shadow); }
+      .store-preview-cover { min-height: 140px; display: flex; align-items: flex-end; padding: 18px; background-size: cover; background-position: center; position: relative; }
+      .store-preview-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(15,23,42,0.78), rgba(15,23,42,0.24)); }
+      .store-preview-content { position: relative; z-index: 1; display: flex; align-items: center; gap: 12px; width: 100%; }
+      .store-preview-logo { width: 56px; height: 56px; border-radius: 14px; object-fit: cover; border: 3px solid rgba(255,255,255,0.9); background: #fff; }
+      .store-preview-title { display: flex; flex-direction: column; gap: 3px; color: white; }
+      .store-preview-title strong { font-size: 17px; }
+      .store-preview-title span { font-size: 12px; opacity: 0.9; }
+      .store-preview-body { padding: 14px; display: grid; gap: 10px; }
+      .store-preview-body .badge-row { display: flex; flex-wrap: wrap; gap: 8px; }
+      .preview-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; color: var(--sb-text); background: var(--sb-surface); border: 1px solid var(--sb-border); }
+      .store-hero-card { border-radius: 18px; padding: 18px; color: white; margin-bottom: 16px; box-shadow: var(--sb-shadow); display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+      .store-hero-card .hero-copy { max-width: 560px; }
+      .store-hero-card .hero-copy h3 { font-size: 20px; margin-bottom: 6px; }
+      .store-hero-card .hero-copy p { font-size: 13px; opacity: 0.95; }
+      .store-hero-card .hero-logo { width: 64px; height: 64px; border-radius: 16px; object-fit: cover; border: 3px solid rgba(255,255,255,0.9); background: #fff; flex-shrink: 0; }
       .muted { color: var(--sb-text-muted); font-size: 13px; }
       .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
       .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
@@ -164,6 +180,10 @@
       ul { padding-left: 18px; }
       .empty { color: var(--sb-text-muted); padding: 20px 0; }
       .mobile-only { display: none; }
+      @media (max-width: 1200px) {
+        .hero { flex-direction: column; align-items: flex-start; }
+        .hero h1 { font-size: 24px; }
+      }
       @media (max-width: 992px) {
         .sidebar { transform: translateX(-100%); width: var(--sb-sidebar-width); }
         .sidebar.open { transform: translateX(0); }
@@ -171,6 +191,17 @@
         .main-content { margin-left: 0; padding: 16px 16px 30px; }
         .sidebar.collapsed + .main-content { margin-left: 0; }
         .mobile-only { display: inline-flex; }
+        .content-topbar { flex-direction: column; align-items: flex-start; gap: 10px; }
+      }
+      @media (max-width: 640px) {
+        .sidebar-header { padding: 16px; }
+        .sidebar-user { margin: 12px; }
+        .sidebar-nav { padding: 8px; }
+        .hero, .card, .store-card, .product-card { padding: 14px; border-radius: 14px; }
+        .hero h1 { font-size: 20px; }
+        .grid { grid-template-columns: 1fr; }
+        .store-hero-card { flex-direction: column; align-items: flex-start; }
+        .store-preview-content { flex-direction: column; align-items: flex-start; }
       }
     </style>
   </head>
@@ -323,7 +354,52 @@
                 <label>Endereço</label>
                 <input type="text" id="lojaEndereco" />
               </div>
-              <button class="btn-primary" type="submit"><i class="fas fa-plus"></i> Criar loja</button>
+              <div class="field">
+                <label>Logo da vitrine (URL ou data URL)</label>
+                <input type="text" id="lojaLogoUrl" placeholder="https://...png" />
+              </div>
+              <div class="field">
+                <label>Capa da vitrine (URL ou data URL)</label>
+                <input type="text" id="lojaCoverUrl" placeholder="https://...jpg" />
+              </div>
+              <div class="field">
+                <label>Cor principal</label>
+                <input type="color" id="lojaPrimaryColor" value="#2563eb" />
+              </div>
+              <div class="field">
+                <label>Cor secundária</label>
+                <input type="color" id="lojaSecondaryColor" value="#0f766e" />
+              </div>
+              <div class="field">
+                <label>Cor de destaque</label>
+                <input type="color" id="lojaAccentColor" value="#f59e0b" />
+              </div>
+              <div class="field">
+                <label>Título da vitrine</label>
+                <input type="text" id="lojaHeroTitle" placeholder="Nossa vitrine especial" />
+              </div>
+              <div class="field">
+                <label>Subtítulo da vitrine</label>
+                <input type="text" id="lojaHeroSubtitle" placeholder="Promoções, novidades e atendimento rápido" />
+              </div>
+              <div class="store-preview-card" id="storePreviewCard">
+                <div class="store-preview-cover" id="storePreviewCover">
+                  <div class="store-preview-content">
+                    <img class="store-preview-logo" id="storePreviewLogo" src="https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=400&q=80" alt="Logo da loja" />
+                    <div class="store-preview-title">
+                      <strong id="storePreviewTitle">Sua vitrine</strong>
+                      <span id="storePreviewSubtitle">Personalize cores, logo e mensagem.</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="store-preview-body">
+                  <div class="badge-row">
+                    <span class="preview-badge"><i class="fas fa-palette"></i> Visual customizado</span>
+                    <span class="preview-badge"><i class="fas fa-mobile-screen"></i> Responsivo</span>
+                  </div>
+                </div>
+              </div>
+              <button class="btn-primary" type="submit" style="margin-top:12px;"><i class="fas fa-plus"></i> Criar loja</button>
             </form>
           </div>
           <div class="card">
@@ -358,7 +434,11 @@
               <input type="number" id="produtoQuantidade" min="0" value="0" required />
             </div>
             <div class="field">
-              <label>Fotos (URLs, separadas por vírgula)</label>
+              <label>Foto do produto</label>
+              <input type="file" id="produtoFotoInput" accept="image/*" capture="environment" />
+            </div>
+            <div class="field">
+              <label>Fotos (URLs ou foto capturada, separadas por vírgula)</label>
               <textarea id="produtoFotos" placeholder="https://...jpg, https://...png"></textarea>
             </div>
             <button class="btn-primary" type="submit"><i class="fas fa-save"></i> Salvar produto</button>
@@ -417,6 +497,17 @@
       const produtoLojaId = document.getElementById('produtoLojaId');
       const lojaForm = document.getElementById('lojaForm');
       const produtoForm = document.getElementById('produtoForm');
+      const lojaLogoUrlInput = document.getElementById('lojaLogoUrl');
+      const lojaCoverUrlInput = document.getElementById('lojaCoverUrl');
+      const lojaPrimaryColorInput = document.getElementById('lojaPrimaryColor');
+      const lojaSecondaryColorInput = document.getElementById('lojaSecondaryColor');
+      const lojaAccentColorInput = document.getElementById('lojaAccentColor');
+      const lojaHeroTitleInput = document.getElementById('lojaHeroTitle');
+      const lojaHeroSubtitleInput = document.getElementById('lojaHeroSubtitle');
+      const storePreviewCover = document.getElementById('storePreviewCover');
+      const storePreviewLogo = document.getElementById('storePreviewLogo');
+      const storePreviewTitle = document.getElementById('storePreviewTitle');
+      const storePreviewSubtitle = document.getElementById('storePreviewSubtitle');
 
       async function init() {
         const config = await fetch('/config').then((r) => r.json());
@@ -489,6 +580,45 @@
 
         document.getElementById('btnHomeToVitrine').addEventListener('click', () => showPage('vitrine'));
 
+        [lojaLogoUrlInput, lojaCoverUrlInput, lojaPrimaryColorInput, lojaSecondaryColorInput, lojaAccentColorInput, lojaHeroTitleInput, lojaHeroSubtitleInput].forEach((input) => {
+          input.addEventListener('input', syncStorePreview);
+          input.addEventListener('change', syncStorePreview);
+        });
+
+        document.getElementById('produtoFotoInput').addEventListener('change', async (event) => {
+          const fileInput = event.target;
+          const files = Array.from(fileInput.files || []);
+          if (!files.length) return;
+
+          if (!state.token) {
+            alert('Faça login para enviar a foto para o storage.');
+            return;
+          }
+
+          const urls = [];
+          for (const file of files) {
+            const dataUrl = await readFileAsDataUrl(file);
+            const response = await fetch('/produtos/upload-foto', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
+              body: JSON.stringify({
+                fileName: file.name,
+                contentType: file.type || 'image/jpeg',
+                dataUrl
+              })
+            });
+            const result = await response.json();
+            if (!response.ok) {
+              alert(result.erro || 'Não foi possível enviar a foto.');
+              continue;
+            }
+            urls.push(result.url);
+          }
+
+          const current = document.getElementById('produtoFotos').value;
+          document.getElementById('produtoFotos').value = [current, ...urls].filter(Boolean).join(', ');
+        });
+
         lojaForm.addEventListener('submit', async (event) => {
           event.preventDefault();
           if (!state.usuario) return alert('Faça login para criar uma loja.');
@@ -500,7 +630,14 @@
             tipo_documento: document.getElementById('lojaTipoDocumento').value,
             endereco: document.getElementById('lojaEndereco').value,
             latitude: null,
-            longitude: null
+            longitude: null,
+            logo_url: lojaLogoUrlInput.value,
+            cover_url: lojaCoverUrlInput.value,
+            primary_color: lojaPrimaryColorInput.value,
+            secondary_color: lojaSecondaryColorInput.value,
+            accent_color: lojaAccentColorInput.value,
+            hero_title: lojaHeroTitleInput.value,
+            hero_subtitle: lojaHeroSubtitleInput.value
           };
           const response = await fetch('/lojas', {
             method: 'POST',
@@ -523,7 +660,8 @@
             descricao: document.getElementById('produtoDescricao').value,
             preco: Number(document.getElementById('produtoPreco').value),
             quantidade_estoque: Number(document.getElementById('produtoQuantidade').value),
-            fotos
+            fotos,
+            destaque: true
           };
           const response = await fetch('/produtos', {
             method: 'POST',
@@ -544,6 +682,29 @@
         });
 
         document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'light');
+      }
+
+      function syncStorePreview() {
+        const title = lojaHeroTitleInput.value || 'Sua vitrine';
+        const subtitle = lojaHeroSubtitleInput.value || 'Personalize cores, logo e mensagem.';
+        const cover = lojaCoverUrlInput.value || 'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=1200&q=80';
+        const logo = lojaLogoUrlInput.value || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=400&q=80';
+        const primary = lojaPrimaryColorInput.value || '#2563eb';
+        const secondary = lojaSecondaryColorInput.value || '#0f766e';
+        storePreviewCover.style.backgroundImage = `linear-gradient(90deg, ${secondary}dd, ${primary}bb), url('${cover}')`;
+        storePreviewLogo.src = logo;
+        storePreviewTitle.textContent = title;
+        storePreviewSubtitle.textContent = subtitle;
+        storePreviewCover.style.borderBottom = `4px solid ${lojaAccentColorInput.value || '#f59e0b'}`;
+      }
+
+      function readFileAsDataUrl(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(file);
+        });
       }
 
       async function carregarUsuario() {
@@ -617,6 +778,7 @@
           }
           lojasArea.innerHTML = state.lojas.map((loja) => `
             <div class="store-card" style="margin-bottom:12px;">
+              ${loja.cover_url ? `<img src="${loja.cover_url}" alt="Capa de ${loja.nome}" />` : ''}
               <h3>${loja.nome}</h3>
               <p class="muted">${loja.endereco || 'Endereço não informado'}</p>
               <p class="pill" style="margin-top:8px;"><i class="fas fa-location-dot"></i> ${Number(loja.distancia_km || 0).toFixed(1)} km</p>
@@ -647,6 +809,7 @@
         produtoLojaId.innerHTML = state.minhasLojas.map((loja) => `<option value="${loja.id}">${loja.nome}</option>`).join('');
         minhasLojasArea.innerHTML = state.minhasLojas.map((loja) => `
           <div class="store-card" style="margin-bottom:12px;">
+            ${loja.cover_url ? `<img src="${loja.cover_url}" alt="Capa de ${loja.nome}" />` : ''}
             <h3>${loja.nome}</h3>
             <p class="muted">${loja.descricao || 'Sem descrição'}</p>
             <p class="muted">WhatsApp: ${loja.whatsapp || '-'}</p>
@@ -659,13 +822,29 @@
       }
 
       async function carregarVitrine(lojaId) {
-        const response = await fetch(`/produtos/loja/${lojaId}/vitrine`);
-        const produtos = await response.json();
+        const [produtosResponse, lojaResponse] = await Promise.all([
+          fetch(`/produtos/loja/${lojaId}/vitrine`),
+          fetch(`/lojas/${lojaId}`)
+        ]);
+        const produtos = await produtosResponse.json();
+        const loja = await lojaResponse.json().catch(() => null);
+
+        const heroHtml = loja ? `
+          <div class="store-hero-card" style="background: linear-gradient(135deg, ${loja.primary_color || '#2563eb'}, ${loja.secondary_color || '#0f766e'});">
+            <div class="hero-copy">
+              <h3>${loja.hero_title || loja.nome}</h3>
+              <p>${loja.hero_subtitle || loja.descricao || 'Vitrine personalizada com logo, cores e identidade visual.'}</p>
+            </div>
+            ${loja.logo_url ? `<img class="hero-logo" src="${loja.logo_url}" alt="Logo ${loja.nome}" />` : ''}
+          </div>
+        ` : '';
+
         if (!produtos.length) {
-          vitrineArea.innerHTML = '<div class="empty">Essa loja ainda não possui produtos em destaque.</div>';
+          vitrineArea.innerHTML = `${heroHtml}<div class="empty">Essa loja ainda não possui produtos em destaque.</div>`;
           return;
         }
-        vitrineArea.innerHTML = produtos.map((produto) => `
+
+        vitrineArea.innerHTML = `${heroHtml}${produtos.map((produto) => `
           <div class="product-card" style="margin-bottom:12px;">
             <div class="pill"><i class="fas fa-tag"></i> R$ ${Number(produto.preco).toFixed(2)}</div>
             <h3 style="margin-top:10px;">${produto.nome}</h3>
@@ -675,7 +854,7 @@
               <button class="btn-primary" onclick="window.adicionarCarrinho('${produto.id}', '${lojaId}', '${produto.preco}')"><i class="fas fa-cart-plus"></i> Adicionar</button>
             </div>
           </div>
-        `).join('');
+        `).join('')}`;
       }
 
       async function carregarCarrinho() {
@@ -839,6 +1018,8 @@
         if (result.linkWhatsapp) window.open(result.linkWhatsapp, '_blank');
         else alert('Pedido enviado');
       };
+
+      syncStorePreview();
 
       state.supabase?.auth.onAuthStateChange((_event, session) => {
         state.usuario = session?.user || null;

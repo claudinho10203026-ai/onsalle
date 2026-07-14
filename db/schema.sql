@@ -79,15 +79,20 @@ create table if not exists public.lojas (
   dono_id uuid not null references public.perfis(id) on delete cascade,
   nome text not null,
   descricao text,
-  whatsapp text not null,               -- formato internacional, ex: 5581999999999
-  documento text,                      -- CPF ou CNPJ
+  whatsapp text not null,
+  documento text,
   tipo_documento text default 'cpf' check (tipo_documento in ('cpf','cnpj')),
   endereco text,
   latitude double precision,
   longitude double precision,
-  localizacao geography(Point, 4326),   -- preenchido automaticamente via trigger
+  localizacao geography(Point, 4326),
   logo_url text,
-  capa_url text,
+  cover_url text,
+  primary_color text default '#2563eb',
+  secondary_color text default '#0f766e',
+  accent_color text default '#f59e0b',
+  hero_title text,
+  hero_subtitle text,
   ativo boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -95,6 +100,13 @@ create table if not exists public.lojas (
 
 alter table public.lojas add column if not exists documento text;
 alter table public.lojas add column if not exists tipo_documento text default 'cpf';
+alter table public.lojas add column if not exists logo_url text;
+alter table public.lojas add column if not exists cover_url text;
+alter table public.lojas add column if not exists primary_color text default '#2563eb';
+alter table public.lojas add column if not exists secondary_color text default '#0f766e';
+alter table public.lojas add column if not exists accent_color text default '#f59e0b';
+alter table public.lojas add column if not exists hero_title text;
+alter table public.lojas add column if not exists hero_subtitle text;
 
 create index if not exists lojas_localizacao_idx on public.lojas using gist (localizacao);
 create index if not exists lojas_dono_id_idx on public.lojas (dono_id);
@@ -139,11 +151,12 @@ create table if not exists public.produtos (
   preco numeric(10,2) not null check (preco >= 0),
   quantidade_estoque integer not null default 0 check (quantidade_estoque >= 0),
   ativo boolean not null default true,
+  destaque boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
-create index produtos_loja_id_idx on public.produtos (loja_id);
+create index if not exists produtos_loja_id_idx on public.produtos (loja_id);
 
 create trigger set_updated_at_produtos
   before update on public.produtos
@@ -159,13 +172,15 @@ create table if not exists public.produto_fotos (
   ordem integer not null default 0
 );
 
-create index produto_fotos_produto_id_idx on public.produto_fotos (produto_id);
+create index if not exists produto_fotos_produto_id_idx on public.produto_fotos (produto_id);
 
 -- ---------------------------------------------------------------------
 -- VIEW PÚBLICA DA VITRINE
 -- NÃO expõe quantidade_estoque - só um booleano "disponivel".
 -- É isso que o front-end do cliente deve consultar, nunca a tabela produtos direto.
 -- ---------------------------------------------------------------------
+drop view if exists public.vw_vitrine_produtos;
+
 create view public.vw_vitrine_produtos as
 select
   p.id,
@@ -174,6 +189,7 @@ select
   p.nome,
   p.descricao,
   p.preco,
+  p.destaque,
   (p.quantidade_estoque > 0) as disponivel,
   p.created_at
 from public.produtos p
@@ -192,7 +208,7 @@ create table if not exists public.carrinhos (
   created_at timestamptz not null default now()
 );
 
-create unique index carrinhos_aberto_unico_idx
+create unique index if not exists carrinhos_aberto_unico_idx
   on public.carrinhos (cliente_id, loja_id)
   where status = 'aberto';
 
@@ -219,8 +235,8 @@ create table if not exists public.pedidos (
   updated_at timestamptz not null default now()
 );
 
-create index pedidos_loja_id_idx on public.pedidos (loja_id);
-create index pedidos_cliente_id_idx on public.pedidos (cliente_id);
+create index if not exists pedidos_loja_id_idx on public.pedidos (loja_id);
+create index if not exists pedidos_cliente_id_idx on public.pedidos (cliente_id);
 
 create trigger set_updated_at_pedidos
   before update on public.pedidos
@@ -354,6 +370,29 @@ alter table public.carrinho_itens enable row level security;
 alter table public.pedidos enable row level security;
 alter table public.pedido_itens enable row level security;
 alter table public.push_subscriptions enable row level security;
+
+drop policy if exists "perfis_leitura_publica" on public.perfis;
+drop policy if exists "perfis_update_proprio" on public.perfis;
+drop policy if exists "lojas_leitura_publica" on public.lojas;
+drop policy if exists "lojas_insert_dono" on public.lojas;
+drop policy if exists "lojas_update_dono" on public.lojas;
+drop policy if exists "lojas_delete_dono" on public.lojas;
+drop policy if exists "categorias_leitura_publica" on public.categorias;
+drop policy if exists "categorias_gerencia_dono" on public.categorias;
+drop policy if exists "produtos_select_dono" on public.produtos;
+drop policy if exists "produtos_insert_dono" on public.produtos;
+drop policy if exists "produtos_update_dono" on public.produtos;
+drop policy if exists "produtos_delete_dono" on public.produtos;
+drop policy if exists "fotos_leitura_publica" on public.produto_fotos;
+drop policy if exists "fotos_gerencia_dono" on public.produto_fotos;
+drop policy if exists "carrinhos_gerencia_cliente" on public.carrinhos;
+drop policy if exists "carrinho_itens_gerencia_cliente" on public.carrinho_itens;
+drop policy if exists "pedidos_select_cliente" on public.pedidos;
+drop policy if exists "pedidos_select_dono_loja" on public.pedidos;
+drop policy if exists "pedidos_insert_cliente" on public.pedidos;
+drop policy if exists "pedidos_update_dono_loja" on public.pedidos;
+drop policy if exists "pedido_itens_select" on public.pedido_itens;
+drop policy if exists "push_subscriptions_gerencia_proprio" on public.push_subscriptions;
 
 create policy "perfis_leitura_publica" on public.perfis
   for select using (true);
