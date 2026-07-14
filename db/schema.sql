@@ -501,8 +501,8 @@ begin
   update public.pedidos set total = v_total where id = v_pedido_id;
 
   if p_parcelas <= 1 then
-    insert into public.pedido_parcelas (pedido_id, numero, valor, status)
-    values (v_pedido_id, 1, v_total, 'pendente');
+    insert into public.pedido_parcelas (pedido_id, numero, valor, forma_pagamento, status)
+    values (v_pedido_id, 1, v_total, coalesce(p_forma_pagamento, 'WhatsApp'), 'pendente');
   else
     v_parcela_valor := round(v_total / p_parcelas, 2);
     for i in 1..p_parcelas loop
@@ -511,8 +511,8 @@ begin
       else
         v_valor := round(v_total - v_acumulado, 2);
       end if;
-      insert into public.pedido_parcelas (pedido_id, numero, valor, status)
-      values (v_pedido_id, i, v_valor, 'pendente');
+      insert into public.pedido_parcelas (pedido_id, numero, valor, forma_pagamento, status)
+      values (v_pedido_id, i, v_valor, coalesce(p_forma_pagamento, 'WhatsApp'), 'pendente');
       v_acumulado := v_acumulado + v_valor;
     end loop;
   end if;

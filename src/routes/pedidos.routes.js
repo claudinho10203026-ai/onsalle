@@ -80,12 +80,37 @@ router.patch('/:id/status', autenticar, async (req, res) => {
   res.json(data);
 });
 
+router.patch('/:id/parcela/:parcelaId', autenticar, async (req, res) => {
+  const { status, forma_pagamento, pago_em } = req.body;
+  const validStatus = ['pendente', 'pago'];
+  if (!validStatus.includes(status)) {
+    return res.status(400).json({ erro: 'Status da parcela inválido.' });
+  }
+
+  const payload = {
+    status,
+    forma_pagamento: forma_pagamento || null,
+    pago_em: status === 'pago' ? (pago_em ? new Date(pago_em).toISOString() : new Date().toISOString()) : null
+  };
+
+  const { data, error } = await req.supabase
+    .from('pedido_parcelas')
+    .update(payload)
+    .eq('id', req.params.parcelaId)
+    .eq('pedido_id', req.params.id)
+    .select()
+    .single();
+
+  if (error) return res.status(400).json({ erro: error.message });
+  res.json(data);
+});
+
 // Lista pedidos - o próprio RLS decide se retorna os pedidos como cliente
 // ou como dono de loja
 router.get('/', autenticar, async (req, res) => {
   const { data, error } = await req.supabase
     .from('pedidos')
-    .select('*, pedido_itens(*)')
+    .select('*, pedido_itens(*), pedido_parcelas(*)')
     .order('created_at', { ascending: false });
 
   if (error) return res.status(400).json({ erro: error.message });

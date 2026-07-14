@@ -1294,6 +1294,16 @@
       }
 
       async function carregarDashboard() {
+        if (!state.minhasLojas.length) {
+          dashboardArea.innerHTML = `
+            <div class="stat-card" style="grid-column: 1 / -1; text-align: center;">
+              <strong>Painel disponível apenas para lojistas</strong>
+              <span class="muted">Crie uma loja ou faça login como dono de loja para ver seu painel financeiro, pedidos e estoque.</span>
+            </div>
+          `;
+          return;
+        }
+
         const pedidos = state.pedidos || [];
         const totalPedidos = pedidos.length;
         const totalAReceber = pedidos
@@ -1302,6 +1312,8 @@
         const totalRecebido = pedidos
           .filter((pedido) => pedido.status === 'concluido')
           .reduce((sum, pedido) => sum + Number(pedido.total || 0), 0);
+        const totalProdutosEstoque = state.produtosGerenciados?.reduce((sum, produto) => sum + Number(produto.quantidade_estoque || 0), 0) || 0;
+        const produtosBaixoEstoque = (state.produtosGerenciados || []).filter((produto) => Number(produto.quantidade_estoque || 0) <= 3).length;
 
         dashboardArea.innerHTML = `
           <div class="stat-card">
@@ -1319,6 +1331,14 @@
           <div class="stat-card">
             <strong>R$ ${totalRecebido.toFixed(2)}</strong>
             <span class="muted">Recebido</span>
+          </div>
+          <div class="stat-card">
+            <strong>${totalProdutosEstoque}</strong>
+            <span class="muted">Unidades em estoque</span>
+          </div>
+          <div class="stat-card">
+            <strong>${produtosBaixoEstoque}</strong>
+            <span class="muted">Produtos baixo estoque</span>
           </div>
         `;
       }
@@ -1627,9 +1647,73 @@
             <h3>Itens no carrinho</h3>
             <ul>${carrinho.carrinho_itens.map((item) => `<li>${item.quantidade}x ${item.nome_produto} — R$ ${(Number(item.preco_unitario) * item.quantidade).toFixed(2)}</li>`).join('')}</ul>
             <p style="margin-top:12px;"><strong>Total:</strong> R$ ${total.toFixed(2)}</p>
-            <div class="row">
-              <button class="btn-primary" onclick="window.finalizarPedido()"><i class="fas fa-whatsapp"></i> Finalizar por WhatsApp</button>
+            <div class="field" style="margin-top:16px;">
+              <label>Forma de pagamento</label>
+              <select id="checkoutFormaPagamento">
+                <option value="WhatsApp">WhatsApp</option>
+                <option value="Dinheiro">Dinheiro</option>
+                <option value="Pix">Pix</option>
+                <option value="Cartão">Cartão</option>
+                <option value="A prazo">A prazo</option>
+              </select>
             </div>
+            <div class="field" style="margin-top:12px;">
+              <label>Número de parcelas</label>
+              <input type="number" id="checkoutParcelas" min="1" value="1" style="width:80px;" />
+            </div>
+            <div class="row">
+              <button class="btn-primary" onclick="window.finalizarPedido()"><i class="fas fa-check-circle"></i> Finalizar pedido</button>
+            </div>
+          </div>
+        `;
+      }
+
+      function formatarData(data) {
+        if (!data) return '—';
+        const parsed = new Date(data);
+        if (Number.isNaN(parsed.getTime())) return '—';
+        return parsed.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+      }
+
+      function renderParcelasPedido(pedido) {
+        const parcelas = Array.isArray(pedido.pedido_parcelas) ? pedido.pedido_parcelas : [];
+        if (!parcelas.length) return '';
+
+        const mostrarParcelas = pedido.forma_pagamento === 'A prazo' || Number(pedido.parcelas || 1) > 1;
+        if (!mostrarParcelas) return '';
+
+        const hoje = new Date().toISOString().split('T')[0];
+
+        return `
+          <div style="margin-top:10px; padding-top:10px; border-top: 1px solid var(--sb-border);">
+            <p class="muted"><strong>Parcelas</strong></p>
+            ${parcelas.map((parcela) => `
+              <div style="margin-top:8px; padding:10px; border:1px solid var(--sb-border); border-radius:10px; background:var(--sb-elevated);">
+                <p class="muted"><strong>Parcela ${parcela.numero || 1}</strong> • R$ ${Number(parcela.valor || 0).toFixed(2)}</p>
+                <p class="muted">Status: ${parcela.status === 'pago' ? 'Paga' : 'Pendente'}</p>
+                <p class="muted">Forma de pagamento: ${parcela.forma_pagamento || 'Ainda não definida'}</p>
+                <p class="muted">Criada em: ${formatarData(parcela.created_at)}</p>
+                <p class="muted">${parcela.status === 'pago' ? `Baixada em: ${formatarData(parcela.pago_em)}` : 'Aguardando baixa'}</p>
+                ${parcela.status === 'pago' ? '' : `
+                  <div class="field" style="margin-top:8px;">
+                    <label>Método de recebimento</label>
+                    <select id="parcelaMetodo-${pedido.id}-${parcela.id}">
+                      <option value="Dinheiro">Dinheiro</option>
+                      <option value="Pix">Pix</option>
+                      <option value="Cartão">Cartão</option>
+                      <option value="A prazo">A prazo</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label>Data da baixa</label>
+                    <input type="date" id="parcelaData-${pedido.id}-${parcela.id}" value="${hoje}" />
+                  </div>
+                  <div class="row" style="margin-top:4px; justify-content:flex-end;">
+                    <button class="btn-primary" type="button" onclick="window.marcarParcelaPaga('${pedido.id}', '${parcela.id}')">Registrar baixa</button>
+                  </div>
+                `}
+              </div>
+            `).join('')}
           </div>
         `;
       }
@@ -1662,8 +1746,10 @@
             <p class="muted">Telefone: ${pedido.cliente_telefone || 'Não disponível'}</p>
             <p class="muted">Email: ${pedido.cliente_email || 'Não disponível'}</p>
             <p class="muted">Pagamento: ${pedido.forma_pagamento || 'WhatsApp'} • ${pedido.parcelas || 1} parcela(s)</p>
+            <p class="muted">Pedido criado em: ${formatarData(pedido.created_at)}</p>
             <p class="muted">Total: R$ ${Number(pedido.total).toFixed(2)}</p>
             ${pedido.pedido_itens?.length ? `<ul style="margin-top:8px;">${pedido.pedido_itens.map((item) => `<li>${item.quantidade}x ${item.nome_produto} — R$ ${Number(item.preco_unitario).toFixed(2)}</li>`).join('')}</ul>` : ''}
+            ${renderParcelasPedido(pedido)}
           </div>
         `).join('');
         await carregarDashboard();
@@ -1687,6 +1773,35 @@
         alert('Pedido atualizado com sucesso.');
       }
 
+      window.marcarParcelaPaga = async (pedidoId, parcelaId) => {
+        if (!state.usuario || !state.token) return alert('Faça login para registrar a baixa da parcela.');
+
+        const select = document.getElementById(`parcelaMetodo-${pedidoId}-${parcelaId}`);
+        const dataInput = document.getElementById(`parcelaData-${pedidoId}-${parcelaId}`);
+        if (!select || !dataInput) return alert('Não foi possível localizar os campos da parcela.');
+
+        const response = await fetch(`/pedidos/${pedidoId}/parcela/${parcelaId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${state.token}`
+          },
+          body: JSON.stringify({
+            status: 'pago',
+            forma_pagamento: select.value || 'Dinheiro',
+            pago_em: dataInput.value ? `${dataInput.value}T12:00:00` : new Date().toISOString()
+          })
+        });
+
+        const result = await response.json();
+        if (!response.ok) return alert(result.erro || 'Não foi possível registrar a baixa da parcela.');
+
+        await carregarPedidos();
+        if (window.location.hash.replace('#', '') === 'contas-a-receber') await carregarContasAReceber();
+        if (window.location.hash.replace('#', '') === 'contas-pagas') await carregarContasPagas();
+        alert('Parcela marcada como paga.');
+      };
+
       async function carregarContasAReceber() {
         if (!state.usuario || !state.token) {
           contasReceberArea.innerHTML = '<div class="empty">Faça login para ver contas a receber.</div>';
@@ -1708,6 +1823,8 @@
             <p class="muted">Email: ${pedido.cliente_email || 'Não disponível'}</p>
             <p class="muted">Total a receber: R$ ${Number(pedido.total).toFixed(2)}</p>
             <p class="muted">Pagamento: ${pedido.forma_pagamento || 'WhatsApp'} • ${pedido.parcelas || 1} parcela(s)</p>
+            <p class="muted">Pedido criado em: ${formatarData(pedido.created_at)}</p>
+            ${renderParcelasPedido(pedido)}
             <div class="row" style="margin-top:12px; justify-content:flex-end; gap:8px;">
               <button class="btn-primary" type="button" onclick="window.atualizarStatusPedido('${pedido.id}', 'concluido')">Marcar como pago</button>
             </div>
@@ -1734,6 +1851,8 @@
             <p class="muted">Cliente: ${pedido.cliente_nome || 'Não informado'}</p>
             <p class="muted">Total pago: R$ ${Number(pedido.total).toFixed(2)}</p>
             <p class="muted">Pagamento: ${pedido.forma_pagamento || 'WhatsApp'} • ${pedido.parcelas || 1} parcela(s)</p>
+            <p class="muted">Pedido criado em: ${formatarData(pedido.created_at)}</p>
+            ${renderParcelasPedido(pedido)}
           </div>
         `).join('');
       }
@@ -2066,10 +2185,13 @@
           window.location.hash = 'perfil';
           return alert('Seu telefone precisa estar presente no perfil para finalizar o pedido.');
         }
+        const formaPagamento = document.getElementById('checkoutFormaPagamento')?.value || 'WhatsApp';
+        let parcelas = parseInt(document.getElementById('checkoutParcelas')?.value, 10) || 1;
+        if (parcelas < 1) parcelas = 1;
         const response = await fetch('/pedidos/finalizar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
-          body: JSON.stringify({ carrinho_id: state.carrinhoId })
+          body: JSON.stringify({ carrinho_id: state.carrinhoId, forma_pagamento: formaPagamento, parcelas })
         });
         const result = await response.json();
         if (!response.ok) return alert(result.erro || 'Não foi possível finalizar o pedido');
