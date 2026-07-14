@@ -20,9 +20,15 @@ drop trigger if exists set_updated_at_perfis on public.perfis;
 drop trigger if exists on_auth_user_created on auth.users;
 drop function if exists public.handle_new_user() cascade;
 drop trigger if exists set_updated_at_lojas on public.lojas;
+drop trigger if exists trg_atualizar_localizacao_loja on public.lojas;
 drop function if exists public.atualizar_localizacao_loja() cascade;
 drop trigger if exists set_updated_at_produtos on public.produtos;
 drop trigger if exists set_updated_at_pedidos on public.pedidos;
+-- Essas duas funções mudaram de tipo de retorno (buscar_lojas_proximas
+-- ganhou a coluna cover_url; finalizar_pedido passou de uuid para jsonb),
+-- e "create or replace function" não permite mudar o tipo de retorno.
+drop function if exists public.buscar_lojas_proximas(double precision, double precision, double precision) cascade;
+drop function if exists public.finalizar_pedido(uuid) cascade;
 
 -- ---------------------------------------------------------------------
 -- FUNÇÃO AUXILIAR: atualizar updated_at automaticamente
@@ -83,6 +89,11 @@ create table if not exists public.lojas (
   documento text,
   tipo_documento text default 'cpf' check (tipo_documento in ('cpf','cnpj')),
   endereco text,
+  cep text,
+  numero text,
+  bairro text,
+  cidade text,
+  estado text,
   latitude double precision,
   longitude double precision,
   localizacao geography(Point, 4326),
@@ -107,6 +118,14 @@ alter table public.lojas add column if not exists secondary_color text default '
 alter table public.lojas add column if not exists accent_color text default '#f59e0b';
 alter table public.lojas add column if not exists hero_title text;
 alter table public.lojas add column if not exists hero_subtitle text;
+-- CEP é validado no back-end contra o ViaCEP no cadastro/edição da loja, e o
+-- endereço resultante é geocodificado para latitude/longitude (ver
+-- lojas.routes.js). Sem essas colunas, o cadastro com CEP obrigatório falha.
+alter table public.lojas add column if not exists cep text;
+alter table public.lojas add column if not exists numero text;
+alter table public.lojas add column if not exists bairro text;
+alter table public.lojas add column if not exists cidade text;
+alter table public.lojas add column if not exists estado text;
 
 create index if not exists lojas_localizacao_idx on public.lojas using gist (localizacao);
 create index if not exists lojas_dono_id_idx on public.lojas (dono_id);
@@ -218,9 +237,17 @@ create table if not exists public.carrinho_itens (
   produto_id uuid not null references public.produtos(id) on delete cascade,
   quantidade integer not null check (quantidade > 0),
   preco_unitario numeric(10,2) not null,
+  nome_produto text,
   created_at timestamptz not null default now(),
   unique (carrinho_id, produto_id)
 );
+
+-- Guarda o próprio nome do produto no item do carrinho (snapshot), em vez de
+-- depender de um join com a tabela produtos - essa tabela só é legível via
+-- RLS pelo DONO da loja (o público não pode ver quantidade_estoque). Sem
+-- essa coluna, o carrinho de um cliente que não é dono da loja vinha com
+-- item.produtos nulo e o front-end quebrava ao montar o resumo/checkout.
+alter table public.carrinho_itens add column if not exists nome_produto text;
 
 -- ---------------------------------------------------------------------
 -- PEDIDOS
@@ -277,6 +304,7 @@ returns table (
   descricao text,
   endereco text,
   logo_url text,
+  cover_url text,
   distancia_km double precision
 )
 language sql
@@ -288,6 +316,7 @@ as $$
     l.descricao,
     l.endereco,
     l.logo_url,
+    l.cover_url,
     st_distance(l.localizacao, st_setsrid(st_makepoint(lng, lat), 4326)::geography) / 1000 as distancia_km
   from public.lojas l
   where l.ativo = true
@@ -297,12 +326,64 @@ as $$
 $$;
 
 -- ---------------------------------------------------------------------
+-- FUNÇÃO: BUSCAR LOJAS PELO NOME DA LOJA OU PELO NOME DE UM PRODUTO
+-- Chamada por GET /lojas/buscar?q=... (lojas.routes.js). SECURITY DEFINER
+-- porque também precisa enxergar produtos.nome para casar pelo nome do
+-- produto - a tabela produtos só é legível via RLS pelo dono da loja, mas
+-- aqui nunca expomos quantidade_estoque, só o nome (mesmo dado já público
+-- via vw_vitrine_produtos).
+-- ---------------------------------------------------------------------
+create or replace function public.buscar_lojas(termo text)
+returns table (
+  id uuid,
+  nome text,
+  descricao text,
+  endereco text,
+  whatsapp text,
+  logo_url text,
+  cover_url text,
+  encontrado_por text,
+  produto_nome text
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    l.id, l.nome, l.descricao, l.endereco, l.whatsapp, l.logo_url, l.cover_url,
+    'loja'::text as encontrado_por,
+    null::text as produto_nome
+  from public.lojas l
+  where l.ativo = true
+    and l.nome ilike '%' || termo || '%'
+
+  union all
+
+  select
+    l.id, l.nome, l.descricao, l.endereco, l.whatsapp, l.logo_url, l.cover_url,
+    'produto'::text as encontrado_por,
+    p.nome as produto_nome
+  from public.produtos p
+  join public.lojas l on l.id = p.loja_id
+  where p.ativo = true
+    and l.ativo = true
+    and p.nome ilike '%' || termo || '%';
+$$;
+
+-- ---------------------------------------------------------------------
 -- FUNÇÃO: FINALIZAR PEDIDO
 -- Transação atômica: cria o pedido, copia os itens, baixa o estoque e
 -- fecha o carrinho. Chamada pelo backend via supabase.rpc('finalizar_pedido').
 -- ---------------------------------------------------------------------
+-- ALTERADO: antes, um item com quantidade maior que o estoque fazia a
+-- função inteira falhar (raise exception) e o pedido não era criado. Agora
+-- o pedido é sempre criado; itens que excedem o estoque zeram o estoque
+-- (em vez de ir negativo) e entram na lista itens_insuficientes devolvida
+-- ao back-end, que repassa isso ao front-end para avisar o cliente a
+-- confirmar a disponibilidade com a loja pelo WhatsApp.
 create or replace function public.finalizar_pedido(p_carrinho_id uuid)
-returns uuid
+returns jsonb
 language plpgsql
 security definer
 as $$
@@ -311,6 +392,7 @@ declare
   v_loja_id uuid;
   v_pedido_id uuid;
   v_total numeric(10,2) := 0;
+  v_itens_insuficientes jsonb := '[]'::jsonb;
   item record;
 begin
   select cliente_id, loja_id into v_cliente_id, v_loja_id
@@ -325,27 +407,42 @@ begin
     raise exception 'Não autorizado';
   end if;
 
+  if not exists (select 1 from public.carrinho_itens where carrinho_id = p_carrinho_id) then
+    raise exception 'Carrinho vazio';
+  end if;
+
   insert into public.pedidos (cliente_id, loja_id, status, total)
   values (v_cliente_id, v_loja_id, 'pendente', 0)
   returning id into v_pedido_id;
 
   for item in
-    select ci.produto_id, ci.quantidade, ci.preco_unitario, p.nome as nome_produto, p.quantidade_estoque
+    select
+      ci.produto_id,
+      ci.quantidade,
+      ci.preco_unitario,
+      coalesce(ci.nome_produto, p.nome) as nome_produto,
+      p.quantidade_estoque
     from public.carrinho_itens ci
     join public.produtos p on p.id = ci.produto_id
     where ci.carrinho_id = p_carrinho_id
     for update of p
   loop
-    if item.quantidade_estoque < item.quantidade then
-      raise exception 'Estoque insuficiente para o produto %', item.nome_produto;
-    end if;
-
     insert into public.pedido_itens (pedido_id, produto_id, nome_produto, quantidade, preco_unitario)
     values (v_pedido_id, item.produto_id, item.nome_produto, item.quantidade, item.preco_unitario);
 
-    update public.produtos
-    set quantidade_estoque = quantidade_estoque - item.quantidade
-    where id = item.produto_id;
+    if item.quantidade_estoque < item.quantidade then
+      v_itens_insuficientes := v_itens_insuficientes || jsonb_build_object(
+        'produto_id', item.produto_id,
+        'nome_produto', item.nome_produto,
+        'quantidade_pedida', item.quantidade,
+        'quantidade_disponivel', item.quantidade_estoque
+      );
+      update public.produtos set quantidade_estoque = 0 where id = item.produto_id;
+    else
+      update public.produtos
+      set quantidade_estoque = quantidade_estoque - item.quantidade
+      where id = item.produto_id;
+    end if;
 
     v_total := v_total + (item.quantidade * item.preco_unitario);
   end loop;
@@ -353,7 +450,7 @@ begin
   update public.pedidos set total = v_total where id = v_pedido_id;
   update public.carrinhos set status = 'finalizado' where id = p_carrinho_id;
 
-  return v_pedido_id;
+  return jsonb_build_object('pedido_id', v_pedido_id, 'itens_insuficientes', v_itens_insuficientes);
 end;
 $$;
 
@@ -480,4 +577,5 @@ grant select, insert, update, delete on public.push_subscriptions to authenticat
 grant update on public.perfis to authenticated;
 
 grant execute on function public.buscar_lojas_proximas(double precision, double precision, double precision) to anon, authenticated;
+grant execute on function public.buscar_lojas(text) to anon, authenticated;
 grant execute on function public.finalizar_pedido(uuid) to authenticated;

@@ -185,6 +185,15 @@
       .photo-choice-row { display: flex; gap: 8px; flex-wrap: wrap; }
       .photo-choice-btn { position: relative; overflow: hidden; }
       .photo-choice-btn input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+      .qty-row { display: flex; align-items: center; gap: 8px; }
+      .qty-input { width: 64px; flex: 0 0 auto; text-align: center; padding: 10px 6px; }
+      .field-row { display: flex; gap: 10px; flex-wrap: wrap; }
+      .field-row .field { flex: 1; min-width: 140px; margin-bottom: 12px; }
+      .cep-status { font-size: 12px; margin-top: 4px; min-height: 16px; }
+      .cep-status.ok { color: #16a34a; }
+      .cep-status.erro { color: #ef4444; }
+      .cep-status.carregando { color: var(--sb-text-muted); }
+      .match-note { font-size: 11px; color: var(--sb-accent); margin-top: 4px; }
       @media (max-width: 1200px) {
         .hero { flex-direction: column; align-items: flex-start; }
         .hero h1 { font-size: 24px; }
@@ -207,6 +216,10 @@
         .grid { grid-template-columns: 1fr; }
         .store-hero-card { flex-direction: column; align-items: flex-start; }
         .store-preview-content { flex-direction: column; align-items: flex-start; }
+        .field-row { flex-direction: column; gap: 0; }
+        .field-row .field { min-width: 0; }
+        .qty-row { width: 100%; }
+        .row button { flex: 1 1 auto; justify-content: center; }
       }
     </style>
   </head>
@@ -313,6 +326,19 @@
 
       <section class="page-section" id="page-lojas">
         <div class="card">
+          <h2><i class="fas fa-magnifying-glass"></i> Buscar lojas ou produtos</h2>
+          <p class="muted" style="margin-top:8px;">Digite o nome de uma loja ou de um produto para encontrar quem vende.</p>
+          <div class="row" style="margin-top:12px;">
+            <div class="field" style="flex:1; min-width:220px; margin-bottom:0;">
+              <label>Buscar</label>
+              <input type="text" id="buscaLojaTermo" placeholder="Ex: padaria, tênis, mercado..." />
+            </div>
+            <button class="btn-primary" id="btnBuscarLojas" type="button"><i class="fas fa-magnifying-glass"></i> Buscar</button>
+          </div>
+          <div id="buscaLojasArea" style="margin-top:16px;"></div>
+        </div>
+
+        <div class="card" style="margin-top:16px;">
           <h2><i class="fas fa-map-marked-alt"></i> Lojas próximas</h2>
           <p class="muted" style="margin-top:8px;">Permita acesso à localização para listar estabelecimentos perto de você.</p>
           <div class="row" style="margin-top:12px;">
@@ -320,7 +346,7 @@
               <label>Raio em km</label>
               <input type="number" id="raioLojaKm" min="1" max="100" value="15" />
             </div>
-            <button class="btn-primary" id="btnBuscarLojasProximas" type="button"><i class="fas fa-location-dot"></i> Buscar</button>
+            <button class="btn-primary" id="btnBuscarLojasProximas" type="button"><i class="fas fa-location-dot"></i> Buscar perto de mim</button>
           </div>
           <div id="lojasArea" style="margin-top:16px;"></div>
         </div>
@@ -369,9 +395,16 @@
                 <label>CPF/CNPJ</label>
                 <input type="text" id="lojaDocumento" placeholder="00000000000 ou 00000000000000" required />
               </div>
-              <div class="field">
-                <label>Endereço</label>
-                <input type="text" id="lojaEndereco" />
+              <div class="field-row">
+                <div class="field">
+                  <label>CEP</label>
+                  <input type="text" id="lojaCep" placeholder="00000-000" inputmode="numeric" maxlength="9" required />
+                  <div class="cep-status" id="lojaCepStatus"></div>
+                </div>
+                <div class="field">
+                  <label>Número</label>
+                  <input type="text" id="lojaNumero" placeholder="123" />
+                </div>
               </div>
               <div class="field">
                 <label>Logo da vitrine</label>
@@ -554,6 +587,9 @@
       const sidebarClinic = document.getElementById('sidebarClinic');
       const dashboardArea = document.getElementById('dashboardArea');
       const lojasArea = document.getElementById('lojasArea');
+      const buscaLojasArea = document.getElementById('buscaLojasArea');
+      const buscaLojaTermoInput = document.getElementById('buscaLojaTermo');
+      const btnBuscarLojas = document.getElementById('btnBuscarLojas');
       const vitrineArea = document.getElementById('vitrineArea');
       const vitrineLojaSelect = document.getElementById('vitrineLojaSelect');
       const raioLojaKmInput = document.getElementById('raioLojaKm');
@@ -567,6 +603,9 @@
       const produtoLojaId = document.getElementById('produtoLojaId');
       const lojaForm = document.getElementById('lojaForm');
       const produtoForm = document.getElementById('produtoForm');
+      const lojaCepInput = document.getElementById('lojaCep');
+      const lojaCepStatus = document.getElementById('lojaCepStatus');
+      const lojaNumeroInput = document.getElementById('lojaNumero');
       const lojaLogoUrlInput = document.getElementById('lojaLogoUrl');
       const lojaCoverUrlInput = document.getElementById('lojaCoverUrl');
       const lojaPrimaryColorInput = document.getElementById('lojaPrimaryColor');
@@ -652,6 +691,13 @@
 
         document.getElementById('btnHomeToVitrine').addEventListener('click', () => showPage('vitrine'));
         btnBuscarLojasProximas.addEventListener('click', () => carregarLojasProximas(Number(raioLojaKmInput.value || 15)));
+        btnBuscarLojas.addEventListener('click', () => buscarLojas(buscaLojaTermoInput.value));
+        buscaLojaTermoInput.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            buscarLojas(buscaLojaTermoInput.value);
+          }
+        });
         btnAtualizarVitrine.addEventListener('click', () => {
           if (state.lojaSelecionada) {
             carregarVitrine(state.lojaSelecionada);
@@ -671,6 +717,11 @@
           input.addEventListener('input', syncStorePreview);
           input.addEventListener('change', syncStorePreview);
         });
+
+        lojaCepInput.addEventListener('input', () => {
+          lojaCepInput.value = formatarCep(lojaCepInput.value);
+        });
+        lojaCepInput.addEventListener('blur', () => consultarCep(lojaCepInput.value));
 
         document.getElementById('lojaLogoCameraInput').addEventListener('change', (e) => handleStoreImageSelection(e.target, lojaLogoUrlInput));
         document.getElementById('lojaLogoGalleryInput').addEventListener('change', (e) => handleStoreImageSelection(e.target, lojaLogoUrlInput));
@@ -706,15 +757,23 @@
         lojaForm.addEventListener('submit', async (event) => {
           event.preventDefault();
           if (!state.usuario) return alert('Faça login para criar uma loja.');
+
+          const cepLimpo = lojaCepInput.value.replace(/\D/g, '');
+          if (cepLimpo.length !== 8) {
+            lojaCepStatus.textContent = 'Informe um CEP válido com 8 dígitos.';
+            lojaCepStatus.className = 'cep-status erro';
+            lojaCepInput.focus();
+            return;
+          }
+
           const payload = {
             nome: document.getElementById('lojaNome').value,
             descricao: document.getElementById('lojaDescricao').value,
             whatsapp: document.getElementById('lojaWhatsapp').value,
             documento: document.getElementById('lojaDocumento').value,
             tipo_documento: document.getElementById('lojaTipoDocumento').value,
-            endereco: document.getElementById('lojaEndereco').value,
-            latitude: null,
-            longitude: null,
+            cep: cepLimpo,
+            numero: lojaNumeroInput.value,
             logo_url: lojaLogoUrlInput.value,
             cover_url: lojaCoverUrlInput.value,
             primary_color: lojaPrimaryColorInput.value,
@@ -732,6 +791,8 @@
           if (!response.ok) return alert(result.erro || 'Não foi possível criar a loja');
           lojaForm.reset();
           syncStorePreview();
+          lojaCepStatus.textContent = '';
+          lojaCepStatus.className = 'cep-status';
           state.lojaSelecionadaManual = false;
           await carregarMinhasLojas();
           showPage('minhas-lojas');
@@ -779,6 +840,40 @@
         });
 
         document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'light');
+      }
+
+      function formatarCep(valor) {
+        const digitos = valor.replace(/\D/g, '').slice(0, 8);
+        if (digitos.length <= 5) return digitos;
+        return `${digitos.slice(0, 5)}-${digitos.slice(5)}`;
+      }
+
+      async function consultarCep(valor) {
+        const cep = valor.replace(/\D/g, '');
+        if (cep.length !== 8) {
+          lojaCepStatus.textContent = cep.length ? 'CEP incompleto.' : '';
+          lojaCepStatus.className = 'cep-status erro';
+          return;
+        }
+
+        lojaCepStatus.textContent = 'Consultando CEP...';
+        lojaCepStatus.className = 'cep-status carregando';
+
+        try {
+          const resposta = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+          const dados = await resposta.json();
+          if (dados.erro) {
+            lojaCepStatus.textContent = 'CEP não encontrado.';
+            lojaCepStatus.className = 'cep-status erro';
+            return;
+          }
+          const endereco = [dados.logradouro, dados.bairro, `${dados.localidade} - ${dados.uf}`].filter(Boolean).join(', ');
+          lojaCepStatus.textContent = endereco || 'CEP válido.';
+          lojaCepStatus.className = 'cep-status ok';
+        } catch (error) {
+          lojaCepStatus.textContent = 'Não foi possível validar o CEP agora, mas ele será conferido ao salvar.';
+          lojaCepStatus.className = 'cep-status erro';
+        }
       }
 
       function syncStorePreview() {
@@ -936,6 +1031,57 @@
         }
       }
 
+      function renderCardLoja(loja) {
+        const badgeProduto = loja.encontrado_por === 'produto' && loja.produto_nome
+          ? `<div class="match-note"><i class="fas fa-tag"></i> Encontrado por: ${loja.produto_nome}</div>`
+          : '';
+        const distancia = loja.distancia_km !== undefined
+          ? `<p class="pill" style="margin-top:8px;"><i class="fas fa-location-dot"></i> ${Number(loja.distancia_km || 0).toFixed(1)} km</p>`
+          : '';
+        return `
+          <div class="store-card" style="margin-bottom:12px;">
+            ${loja.cover_url ? `<img src="${loja.cover_url}" alt="Capa de ${loja.nome}" />` : ''}
+            <h3>${loja.nome}</h3>
+            <p class="muted">${loja.endereco || 'Endereço não informado'}</p>
+            ${badgeProduto}
+            ${distancia}
+            <div class="row">
+              <button class="btn-primary" onclick="window.selecionarLoja('${loja.id}')"><i class="fas fa-eye"></i> Abrir vitrine</button>
+            </div>
+          </div>
+        `;
+      }
+
+      async function buscarLojas(termoBruto) {
+        const termo = (termoBruto || '').trim();
+        if (termo.length < 2) {
+          buscaLojasArea.innerHTML = '<div class="empty">Digite ao menos 2 caracteres para buscar.</div>';
+          return;
+        }
+
+        buscaLojasArea.innerHTML = '<div class="empty">Buscando...</div>';
+        try {
+          const response = await fetch(`/lojas/buscar?q=${encodeURIComponent(termo)}`);
+          const resultado = await response.json();
+          if (!response.ok) {
+            buscaLojasArea.innerHTML = `<div class="empty">${resultado.erro || 'Não foi possível buscar agora.'}</div>`;
+            return;
+          }
+          const lojas = Array.isArray(resultado) ? resultado : [];
+          if (!lojas.length) {
+            buscaLojasArea.innerHTML = '<div class="empty">Nenhuma loja ou produto encontrado para essa busca.</div>';
+            return;
+          }
+          buscaLojasArea.innerHTML = lojas.map((loja) => renderCardLoja({
+            ...loja,
+            encontrado_por: loja.produtos_correspondentes?.length ? 'produto' : 'loja',
+            produto_nome: loja.produtos_correspondentes?.join(', ')
+          })).join('');
+        } catch (error) {
+          buscaLojasArea.innerHTML = '<div class="empty">Não foi possível buscar agora.</div>';
+        }
+      }
+
       async function carregarLojasProximas(raioKm = 15) {
         if (!navigator.geolocation) {
           lojasArea.innerHTML = '<div class="empty">Geolocalização não suportada pelo navegador.</div>';
@@ -951,17 +1097,7 @@
             lojasArea.innerHTML = '<div class="empty">Nenhuma loja próxima foi encontrada para este raio.</div>';
             return;
           }
-          lojasArea.innerHTML = state.lojas.map((loja) => `
-            <div class="store-card" style="margin-bottom:12px;">
-              ${loja.cover_url ? `<img src="${loja.cover_url}" alt="Capa de ${loja.nome}" />` : ''}
-              <h3>${loja.nome}</h3>
-              <p class="muted">${loja.endereco || 'Endereço não informado'}</p>
-              <p class="pill" style="margin-top:8px;"><i class="fas fa-location-dot"></i> ${Number(loja.distancia_km || 0).toFixed(1)} km</p>
-              <div class="row">
-                <button class="btn-primary" onclick="window.selecionarLoja('${loja.id}')"><i class="fas fa-eye"></i> Abrir vitrine</button>
-              </div>
-            </div>
-          `).join('');
+          lojasArea.innerHTML = state.lojas.map((loja) => renderCardLoja(loja)).join('');
         }, () => {
           lojasArea.innerHTML = '<div class="empty">Permita a localização para ver lojas próximas.</div>';
         });
@@ -1054,7 +1190,10 @@
                 <button class="btn-danger" onclick="window.excluirProduto('${produto.id}', '${lojaId}')"><i class="fas fa-trash"></i> Excluir</button>
                 <button class="btn-secondary" onclick="window.compartilharProduto('${produto.id}', '${lojaId}')"><i class="fas fa-share-alt"></i> Compartilhar</button>
               ` : `
-                <button class="btn-primary" onclick="window.adicionarCarrinho('${produto.id}', '${lojaId}', '${produto.preco}')"><i class="fas fa-cart-plus"></i> Adicionar</button>
+                <div class="qty-row">
+                  <input type="number" class="qty-input" id="qty-${produto.id}" value="1" min="1" step="1" aria-label="Quantidade" />
+                  <button class="btn-primary" onclick="window.adicionarCarrinho('${produto.id}', '${lojaId}', '${produto.preco}')"><i class="fas fa-cart-plus"></i> Adicionar</button>
+                </div>
                 <button class="btn-secondary" onclick="window.compartilharProduto('${produto.id}', '${lojaId}')"><i class="fas fa-share-alt"></i> Compartilhar</button>
               `}
             </div>
@@ -1116,11 +1255,11 @@
           carrinhoArea.innerHTML = '<div class="empty">Seu carrinho está vazio.</div>';
           return;
         }
-        const total = carrinho.carrinho_itens.reduce((sum, item) => sum + Number(item.produtos.preco) * item.quantidade, 0);
+        const total = carrinho.carrinho_itens.reduce((sum, item) => sum + Number(item.preco_unitario) * item.quantidade, 0);
         carrinhoArea.innerHTML = `
           <div class="store-card">
             <h3>Itens no carrinho</h3>
-            <ul>${carrinho.carrinho_itens.map((item) => `<li>${item.quantidade}x ${item.produtos.nome} — R$ ${(Number(item.produtos.preco) * item.quantidade).toFixed(2)}</li>`).join('')}</ul>
+            <ul>${carrinho.carrinho_itens.map((item) => `<li>${item.quantidade}x ${item.nome_produto} — R$ ${(Number(item.preco_unitario) * item.quantidade).toFixed(2)}</li>`).join('')}</ul>
             <p style="margin-top:12px;"><strong>Total:</strong> R$ ${total.toFixed(2)}</p>
             <div class="row">
               <button class="btn-primary" onclick="window.finalizarPedido()"><i class="fas fa-whatsapp"></i> Finalizar por WhatsApp</button>
@@ -1206,7 +1345,7 @@
         document.querySelectorAll('.nav-item').forEach((item) => item.classList.toggle('active', item.getAttribute('data-page') === page));
         const titles = {
           home: { title: 'Início', subtitle: 'Conecte clientes, cadastre produtos e converta pedidos em WhatsApp.' },
-          lojas: { title: 'Lojas próximas', subtitle: 'Veja negócios perto de você e escolha uma vitrine.' },
+          lojas: { title: 'Lojas próximas', subtitle: 'Busque por nome, produto ou veja negócios perto de você.' },
           vitrine: { title: 'Vitrine', subtitle: 'Navegue pelos produtos da loja selecionada.' },
           'minhas-lojas': { title: 'Minhas lojas', subtitle: 'Crie sua loja e organize seus produtos.' },
           'cadastrar-produto': { title: 'Cadastrar produto', subtitle: 'Publique itens com foto, preço e estoque.' },
@@ -1295,15 +1434,16 @@
         const descricao = prompt('Descrição da loja');
         const tipoDocumento = prompt('Digite CPF ou CNPJ', 'cpf');
         const documento = prompt('CPF ou CNPJ da loja');
-        const endereco = prompt('Endereço da loja');
-        if (!nome || !whatsapp || !documento || !tipoDocumento) {
-          alert('Preencha nome, WhatsApp, tipo de documento e CPF/CNPJ para abrir sua loja.');
+        const cep = prompt('CEP da loja (somente números, 8 dígitos)');
+        const numero = prompt('Número do endereço (opcional)');
+        if (!nome || !whatsapp || !documento || !tipoDocumento || !cep) {
+          alert('Preencha nome, WhatsApp, tipo de documento, CPF/CNPJ e CEP para abrir sua loja.');
           return;
         }
         fetch('/lojas', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
-          body: JSON.stringify({ nome, descricao, whatsapp, endereco, latitude: null, longitude: null, documento, tipo_documento: tipoDocumento.toLowerCase() })
+          body: JSON.stringify({ nome, descricao, whatsapp, cep, numero, documento, tipo_documento: tipoDocumento.toLowerCase() })
         }).then(async (response) => {
           const result = await response.json();
           if (!response.ok) throw new Error(result.erro || 'Erro ao criar loja');
@@ -1322,6 +1462,8 @@
       };
       window.adicionarCarrinho = async (produtoId, lojaId, preco) => {
         if (!state.usuario || !state.token) return alert('Faça login para adicionar produtos ao carrinho.');
+        const qtyInput = document.getElementById(`qty-${produtoId}`);
+        const quantidade = Math.max(1, parseInt(qtyInput?.value, 10) || 1);
         const carrinhoResp = await fetch(`/carrinho/loja/${lojaId}`, { headers: { Authorization: `Bearer ${state.token}` } });
         const carrinho = await carrinhoResp.json();
         state.lojaSelecionada = lojaId;
@@ -1329,7 +1471,7 @@
         const response = await fetch(`/carrinho/${carrinho.id}/itens`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
-          body: JSON.stringify({ produto_id: produtoId, quantidade: 1, preco_unitario: preco })
+          body: JSON.stringify({ produto_id: produtoId, quantidade, preco_unitario: preco })
         });
         if (!response.ok) return alert('Não foi possível adicionar o produto');
         showPage('carrinho');
@@ -1344,8 +1486,18 @@
         });
         const result = await response.json();
         if (!response.ok) return alert(result.erro || 'Não foi possível finalizar o pedido');
+
+        if (result.itensInsuficientes?.length) {
+          const linhas = result.itensInsuficientes
+            .map((item) => `• ${item.nome_produto}: pedido ${item.quantidade_pedida}, disponível ${item.quantidade_disponivel}`)
+            .join('\n');
+          alert(`Seu pedido foi enviado, mas alguns itens excedem o estoque atual da loja:\n\n${linhas}\n\nConfirme a disponibilidade desses itens direto com o dono da loja pelo WhatsApp.`);
+        }
+
         if (result.linkWhatsapp) window.open(result.linkWhatsapp, '_blank');
         else alert('Pedido enviado');
+
+        await carregarCarrinho();
       };
 
       syncStorePreview();
