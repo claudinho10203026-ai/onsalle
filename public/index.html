@@ -593,8 +593,57 @@
 
       <section class="page-section" id="page-pedidos">
         <div class="card">
-          <h2><i class="fas fa-receipt"></i> Pedidos</h2>
-          <div id="pedidosArea" class="empty">Nenhum pedido ainda.</div>
+          <div class="row" style="justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+            <div>
+              <h2><i class="fas fa-receipt"></i> Pedidos</h2>
+              <p class="muted" style="margin-top:8px;">Veja o histórico de pedidos, o cliente que comprou e a forma de pagamento escolhida.</p>
+            </div>
+            <div class="row" style="gap:8px; flex-wrap:wrap;">
+              <button class="btn-secondary" id="btnContasReceber" type="button"><i class="fas fa-hand-holding-dollar"></i> Contas a receber</button>
+              <button class="btn-secondary" id="btnContasPagas" type="button"><i class="fas fa-money-check-dollar"></i> Contas pagas</button>
+              <button class="btn-secondary" id="btnRelatorioEstoque" type="button"><i class="fas fa-chart-line"></i> Relatório de estoque</button>
+            </div>
+          </div>
+          <div id="pedidosArea" class="empty" style="margin-top:16px;">Nenhum pedido ainda.</div>
+        </div>
+      </section>
+
+      <section class="page-section" id="page-contas-a-receber">
+        <div class="card">
+          <div class="row" style="justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+            <div>
+              <h2><i class="fas fa-hand-holding-dollar"></i> Contas a receber</h2>
+              <p class="muted" style="margin-top:8px;">Parcelações pendentes e valores que ainda estão por receber.</p>
+            </div>
+            <button class="btn-secondary" type="button" onclick="window.location.hash='pedidos'">Voltar aos pedidos</button>
+          </div>
+          <div id="contasReceberArea" class="empty" style="margin-top:16px;">Nenhuma conta a receber no momento.</div>
+        </div>
+      </section>
+
+      <section class="page-section" id="page-contas-pagas">
+        <div class="card">
+          <div class="row" style="justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+            <div>
+              <h2><i class="fas fa-check-circle"></i> Contas pagas</h2>
+              <p class="muted" style="margin-top:8px;">Parcelas e pagamentos já baixados.</p>
+            </div>
+            <button class="btn-secondary" type="button" onclick="window.location.hash='pedidos'">Voltar aos pedidos</button>
+          </div>
+          <div id="contasPagasArea" class="empty" style="margin-top:16px;">Nenhuma conta paga no momento.</div>
+        </div>
+      </section>
+
+      <section class="page-section" id="page-estoque">
+        <div class="card">
+          <div class="row" style="justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+            <div>
+              <h2><i class="fas fa-boxes-stacked"></i> Relatório de estoque</h2>
+              <p class="muted" style="margin-top:8px;">Observe o estoque atual dos produtos da sua loja e identifique itens com pouca quantidade.</p>
+            </div>
+            <button class="btn-secondary" type="button" onclick="window.location.hash='pedidos'">Voltar aos pedidos</button>
+          </div>
+          <div id="estoqueArea" class="empty" style="margin-top:16px;">Nenhum dado de estoque disponível.</div>
         </div>
       </section>
 
@@ -612,6 +661,7 @@
         <a class="nav-item active" href="#home" data-page="home"><i class="fas fa-home"></i><span>Início</span></a>
         <a class="nav-item" href="#lojas" data-page="lojas"><i class="fas fa-map-marked-alt"></i><span>Lojas</span></a>
         <a class="nav-item" href="#vitrine" data-page="vitrine"><i class="fas fa-store"></i><span>Vitrine</span></a>
+        <a class="nav-item" href="#pedidos" data-page="pedidos"><i class="fas fa-receipt"></i><span>Pedidos</span></a>
         <a class="nav-item" href="#carrinho" data-page="carrinho"><i class="fas fa-shopping-cart"></i><span>Carrinho</span></a>
         <a class="nav-item" href="#perfil" data-page="perfil"><i class="fas fa-user-circle"></i><span>Perfil</span></a>
       </div>
@@ -632,6 +682,8 @@
         produtosVitrine: [],
         produtosGerenciados: [],
         produtoEditandoId: null,
+        pedidos: [],
+        perfil: null,
         supabase: null,
         token: null
       };
@@ -656,6 +708,9 @@
       const carrinhoArea = document.getElementById('carrinhoArea');
       const minhasLojasArea = document.getElementById('minhasLojasArea');
       const pedidosArea = document.getElementById('pedidosArea');
+      const contasReceberArea = document.getElementById('contasReceberArea');
+      const contasPagasArea = document.getElementById('contasPagasArea');
+      const estoqueArea = document.getElementById('estoqueArea');
       const perfilArea = document.getElementById('perfilArea');
       const produtoLojaId = document.getElementById('produtoLojaId');
       const lojaForm = document.getElementById('lojaForm');
@@ -798,6 +853,19 @@
           } else {
             carregarVitrinePadrao();
           }
+        });
+
+        document.getElementById('btnContasReceber').addEventListener('click', async () => {
+          await carregarContasAReceber();
+          window.location.hash = 'contas-a-receber';
+        });
+        document.getElementById('btnContasPagas').addEventListener('click', async () => {
+          await carregarContasPagas();
+          window.location.hash = 'contas-pagas';
+        });
+        document.getElementById('btnRelatorioEstoque').addEventListener('click', async () => {
+          await carregarRelatorioEstoque();
+          window.location.hash = 'estoque';
         });
 
         [lojaLogoUrlInput, lojaCoverUrlInput, lojaPrimaryColorInput, lojaSecondaryColorInput, lojaAccentColorInput, lojaHeroTitleInput, lojaHeroSubtitleInput].forEach((input) => {
@@ -1100,6 +1168,27 @@
         if (state.usuario) await refreshUserData();
       }
 
+      async function carregarPerfil() {
+        if (!state.usuario || !state.token) {
+          state.perfil = null;
+          return;
+        }
+        const { data, error } = await state.supabase
+          .from('perfis')
+          .select('telefone')
+          .eq('id', state.usuario.id)
+          .single();
+
+        if (!error && data) {
+          state.perfil = data;
+        } else {
+          state.perfil = { telefone: '' };
+          if (error && error.message !== 'No rows found') {
+            console.warn('Não foi possível carregar o perfil:', error.message);
+          }
+        }
+      }
+
       async function loginGoogle() {
         if (!state.supabase) {
           alert('Configure o Supabase no arquivo .env para habilitar o login com Google.');
@@ -1107,6 +1196,67 @@
         }
 
         await state.supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
+      }
+
+      async function loginEmailSenha() {
+        if (!state.supabase) {
+          return alert('Supabase não está disponível.');
+        }
+        const email = document.getElementById('loginEmail')?.value?.trim();
+        const password = document.getElementById('loginPassword')?.value;
+        if (!email || !password) {
+          return alert('Preencha email e senha para entrar.');
+        }
+
+        const { data, error } = await state.supabase.auth.signInWithPassword({ email, password });
+        if (error) return alert(error.message || 'Falha ao entrar.');
+
+        state.usuario = data.user || state.usuario;
+        state.token = data.session?.access_token || state.token;
+        await carregarUsuario();
+      }
+
+      async function signUpEmailSenha() {
+        if (!state.supabase) {
+          return alert('Supabase não está disponível.');
+        }
+        const email = document.getElementById('loginEmail')?.value?.trim();
+        const password = document.getElementById('loginPassword')?.value;
+        if (!email || !password) {
+          return alert('Preencha email e senha para cadastrar.');
+        }
+
+        const { data, error } = await state.supabase.auth.signUp({ email, password });
+        if (error) return alert(error.message || 'Falha ao cadastrar.');
+
+        alert('Conta criada. Verifique seu email para confirmar o cadastro.');
+        if (data?.user) {
+          state.usuario = data.user;
+          state.token = data.session?.access_token || state.token;
+          await carregarUsuario();
+        }
+      }
+
+      async function atualizarPerfil() {
+        if (!state.usuario || !state.token) {
+          return alert('Faça login para atualizar seu perfil.');
+        }
+        const telefone = document.getElementById('perfilTelefone')?.value.trim();
+        if (!telefone) {
+          return alert('Informe seu telefone de contato no perfil.');
+        }
+
+        const { data, error } = await state.supabase
+          .from('perfis')
+          .update({ telefone })
+          .eq('id', state.usuario.id)
+          .select()
+          .single();
+
+        if (error) return alert(error.message || 'Não foi possível atualizar o perfil.');
+        state.perfil = data;
+        alert('Telefone salvo com sucesso.');
+        render();
       }
 
       async function logout() {
@@ -1121,22 +1271,31 @@
       }
 
       async function carregarDashboard() {
+        const pedidos = state.pedidos || [];
+        const totalPedidos = pedidos.length;
+        const totalAReceber = pedidos
+          .filter((pedido) => pedido.status === 'pendente' || pedido.status === 'confirmado')
+          .reduce((sum, pedido) => sum + Number(pedido.total || 0), 0);
+        const totalRecebido = pedidos
+          .filter((pedido) => pedido.status === 'concluido')
+          .reduce((sum, pedido) => sum + Number(pedido.total || 0), 0);
+
         dashboardArea.innerHTML = `
           <div class="stat-card">
             <strong>${state.minhasLojas.length || 0}</strong>
             <span class="muted">Lojas cadastradas</span>
           </div>
           <div class="stat-card">
-            <strong>${state.lojas.length || 0}</strong>
-            <span class="muted">Lojas próximas</span>
+            <strong>${totalPedidos}</strong>
+            <span class="muted">Pedidos realizados</span>
           </div>
           <div class="stat-card">
-            <strong>0</strong>
-            <span class="muted">Produtos mais pesquisados</span>
+            <strong>R$ ${totalAReceber.toFixed(2)}</strong>
+            <span class="muted">A receber</span>
           </div>
           <div class="stat-card">
-            <strong>${state.minhasLojas.length ? 'Ativa' : 'Cliente'}</strong>
-            <span class="muted">Status atual</span>
+            <strong>R$ ${totalRecebido.toFixed(2)}</strong>
+            <span class="muted">Recebido</span>
           </div>
         `;
       }
@@ -1304,6 +1463,15 @@
         }
       }
 
+      function produtoEstaDisponivel(produto) {
+        if (!produto) return false;
+        if (produto.ativo === false) return false;
+        if (produto.disponivel !== undefined && produto.disponivel !== null) {
+          return Boolean(produto.disponivel);
+        }
+        return Number(produto.quantidade_estoque) > 0;
+      }
+
       async function carregarVitrine(lojaId) {
         if (!lojaId) return;
         vitrineArea.innerHTML = '<div class="empty">Carregando vitrine...</div>';
@@ -1363,7 +1531,7 @@
               <div class="pill"><i class="fas fa-tag"></i> R$ ${Number(produto.preco).toFixed(2)}</div>
               <h3 style="margin-top:10px;">${produto.nome}</h3>
               <p class="muted">${produto.descricao || 'Sem descrição'}</p>
-              <p class="muted">${(produto.ativo !== false && (produto.disponivel !== false ? produto.disponivel : produto.quantidade_estoque > 0)) ? 'Disponível' : 'Indisponível'}</p>
+              <p class="muted">${produtoEstaDisponivel(produto) ? 'Disponível' : 'Indisponível'}</p>
               <div class="row">
                 ${souDono ? `
                   <button class="btn-secondary" onclick="window.editarProdutoPorId('${produto.id}')"><i class="fas fa-edit"></i> Editar</button>
@@ -1450,15 +1618,94 @@
         }
         const response = await fetch('/pedidos', { headers: { Authorization: `Bearer ${state.token}` } });
         const pedidos = await response.json();
-        if (!pedidos.length) {
+        if (!Array.isArray(pedidos) || !pedidos.length) {
+          state.pedidos = [];
           pedidosArea.innerHTML = '<div class="empty">Nenhum pedido encontrado.</div>';
+          await carregarDashboard();
           return;
         }
+        state.pedidos = pedidos;
         pedidosArea.innerHTML = pedidos.map((pedido) => `
           <div class="store-card" style="margin-bottom:12px;">
             <h3>Pedido #${String(pedido.id).slice(0, 8)}</h3>
             <p class="muted">Status: ${pedido.status}</p>
+            <p class="muted">Cliente: ${pedido.cliente_nome || 'Cliente não informado'}</p>
+            <p class="muted">Telefone: ${pedido.cliente_telefone || 'Não disponível'}</p>
+            <p class="muted">Email: ${pedido.cliente_email || 'Não disponível'}</p>
+            <p class="muted">Pagamento: ${pedido.forma_pagamento || 'WhatsApp'} • ${pedido.parcelas || 1} parcela(s)</p>
             <p class="muted">Total: R$ ${Number(pedido.total).toFixed(2)}</p>
+            ${pedido.pedido_itens?.length ? `<ul style="margin-top:8px;">${pedido.pedido_itens.map((item) => `<li>${item.quantidade}x ${item.nome_produto} — R$ ${Number(item.preco_unitario).toFixed(2)}</li>`).join('')}</ul>` : ''}
+          </div>
+        `).join('');
+        await carregarDashboard();
+      }
+
+      async function carregarContasAReceber() {
+        if (!state.usuario || !state.token) {
+          contasReceberArea.innerHTML = '<div class="empty">Faça login para ver contas a receber.</div>';
+          return;
+        }
+        if (!state.pedidos?.length) {
+          await carregarPedidos();
+        }
+        const pendentes = (state.pedidos || []).filter((pedido) => ['pendente', 'confirmado'].includes(pedido.status));
+        if (!pendentes.length) {
+          contasReceberArea.innerHTML = '<div class="empty">Nenhuma conta a receber no momento.</div>';
+          return;
+        }
+        contasReceberArea.innerHTML = pendentes.map((pedido) => `
+          <div class="store-card" style="margin-bottom:12px;">
+            <h3>Pedido #${String(pedido.id).slice(0, 8)}</h3>
+            <p class="muted">Cliente: ${pedido.cliente_nome || 'Não informado'}</p>
+            <p class="muted">Telefone: ${pedido.cliente_telefone || 'Não disponível'}</p>
+            <p class="muted">Email: ${pedido.cliente_email || 'Não disponível'}</p>
+            <p class="muted">Total a receber: R$ ${Number(pedido.total).toFixed(2)}</p>
+            <p class="muted">Pagamento: ${pedido.forma_pagamento || 'WhatsApp'} • ${pedido.parcelas || 1} parcela(s)</p>
+          </div>
+        `).join('');
+      }
+
+      async function carregarContasPagas() {
+        if (!state.usuario || !state.token) {
+          contasPagasArea.innerHTML = '<div class="empty">Faça login para ver contas pagas.</div>';
+          return;
+        }
+        if (!state.pedidos?.length) {
+          await carregarPedidos();
+        }
+        const pagos = (state.pedidos || []).filter((pedido) => pedido.status === 'concluido');
+        if (!pagos.length) {
+          contasPagasArea.innerHTML = '<div class="empty">Nenhuma conta paga no momento.</div>';
+          return;
+        }
+        contasPagasArea.innerHTML = pagos.map((pedido) => `
+          <div class="store-card" style="margin-bottom:12px;">
+            <h3>Pedido #${String(pedido.id).slice(0, 8)}</h3>
+            <p class="muted">Cliente: ${pedido.cliente_nome || 'Não informado'}</p>
+            <p class="muted">Total pago: R$ ${Number(pedido.total).toFixed(2)}</p>
+            <p class="muted">Pagamento: ${pedido.forma_pagamento || 'WhatsApp'} • ${pedido.parcelas || 1} parcela(s)</p>
+          </div>
+        `).join('');
+      }
+
+      async function carregarRelatorioEstoque() {
+        if (!state.usuario || !state.token || !state.produtoLojaId?.value) {
+          estoqueArea.innerHTML = '<div class="empty">Selecione uma loja para ver o relatório de estoque.</div>';
+          return;
+        }
+        const lojaId = state.produtoLojaId.value;
+        const response = await fetch(`/produtos/loja/${lojaId}/gerenciar`, { headers: { Authorization: `Bearer ${state.token}` } });
+        const produtos = await response.json();
+        if (!Array.isArray(produtos) || !produtos.length) {
+          estoqueArea.innerHTML = '<div class="empty">Nenhum dado de estoque disponível.</div>';
+          return;
+        }
+        estoqueArea.innerHTML = produtos.map((produto) => `
+          <div class="store-card" style="margin-bottom:12px;">
+            <h3>${produto.nome}</h3>
+            <p class="muted">Estoque: ${produto.quantidade_estoque ?? 0}</p>
+            <p class="muted">Preço: R$ ${Number(produto.preco).toFixed(2)}</p>
+            <p class="muted">Status: ${produto.ativo ? 'Ativo' : 'Inativo'}</p>
           </div>
         `).join('');
       }
@@ -1541,11 +1788,24 @@
           'cadastrar-produto': { title: 'Cadastrar produto', subtitle: 'Publique itens com foto, preço e estoque.' },
           carrinho: { title: 'Carrinho', subtitle: 'Revise os produtos escolhidos antes do WhatsApp.' },
           pedidos: { title: 'Pedidos', subtitle: 'Acompanhe cada pedido realizado.' },
+          'contas-a-receber': { title: 'Contas a receber', subtitle: 'Parcelas e valores ainda não recebidos.' },
+          'contas-pagas': { title: 'Contas pagas', subtitle: 'Pagamentos já finalizados e baixados.' },
+          estoque: { title: 'Relatório de estoque', subtitle: 'Acompanhe o estoque dos produtos da sua loja.' },
           perfil: { title: 'Perfil', subtitle: 'Gerencie sua conta e sua presença como vendedor.' }
         };
         const meta = titles[page] || titles.home;
         pageTitle.textContent = meta.title;
         pageSubtitle.textContent = meta.subtitle;
+
+        if (page === 'pedidos') {
+          carregarPedidos();
+        } else if (page === 'contas-a-receber') {
+          carregarContasAReceber();
+        } else if (page === 'contas-pagas') {
+          carregarContasPagas();
+        } else if (page === 'estoque') {
+          carregarRelatorioEstoque();
+        }
       }
 
       window.showPage = showPage;
@@ -1561,7 +1821,25 @@
           sidebarClinic.textContent = state.supabase ? 'Faça login para entrar' : 'Supabase ainda não conectado';
           if (vendedorGroup) vendedorGroup.hidden = true;
           perfilArea.innerHTML = state.supabase
-            ? '<div class="empty"><button class="btn-primary" onclick="window.loginGoogle()"><i class="fas fa-google"></i> Entrar com Google</button></div>'
+            ? `
+              <div class="empty">
+                <form id="loginForm" onsubmit="event.preventDefault(); window.loginEmailSenha();">
+                  <div class="field">
+                    <label>Email</label>
+                    <input type="email" id="loginEmail" placeholder="seu@email.com" required />
+                  </div>
+                  <div class="field">
+                    <label>Senha</label>
+                    <input type="password" id="loginPassword" placeholder="Senha" required />
+                  </div>
+                  <div class="row" style="gap:8px; flex-wrap:wrap; margin-top:8px;">
+                    <button class="btn-primary" type="submit"><i class="fas fa-sign-in-alt"></i> Entrar com email</button>
+                    <button class="btn-secondary" type="button" onclick="window.signUpEmailSenha()"><i class="fas fa-user-plus"></i> Cadastrar</button>
+                    <button class="btn-secondary" type="button" onclick="window.loginGoogle()"><i class="fas fa-google"></i> Entrar com Google</button>
+                  </div>
+                </form>
+              </div>
+            `
             : '<div class="empty">Configure o Supabase no arquivo .env para habilitar login e operações reais.</div>';
           minhasLojasArea.innerHTML = '<div class="empty">Faça login para visualizar suas lojas.</div>';
           carrinhoArea.innerHTML = '<div class="empty">Faça login para usar o carrinho.</div>';
@@ -1577,8 +1855,14 @@
           <div class="store-card">
             <h3>${state.usuario.user_metadata?.full_name || state.usuario.email}</h3>
             <p class="muted">Você começa como cliente, podendo explorar lojas e vitrines. Quando quiser, pode transformar seu perfil em loja e abrir uma vitrine própria.</p>
+            <p class="muted"><strong>Email:</strong> ${state.usuario.email || 'Não cadastrado'}</p>
+            <div class="field" style="margin-top:12px;">
+              <label>Telefone</label>
+              <input type="text" id="perfilTelefone" placeholder="(99) 99999-9999" value="${state.perfil?.telefone || ''}" />
+            </div>
             <div class="row">
-              <button class="btn-primary" onclick="window.editarPerfil()"><i class="fas fa-user-edit"></i> Editar perfil</button>
+              <button class="btn-primary" onclick="window.atualizarPerfil()"><i class="fas fa-save"></i> Salvar telefone</button>
+              <button class="btn-secondary" onclick="window.editarPerfil()"><i class="fas fa-user-edit"></i> Atualizar nome</button>
               <button class="btn-secondary" onclick="window.abrirUpgradeLoja()"><i class="fas fa-store"></i> Quero ter uma loja</button>
               <button class="btn-secondary" onclick="window.logout()"><i class="fas fa-sign-out-alt"></i> Sair</button>
             </div>
@@ -1593,6 +1877,7 @@
       // duas cargas concorrentes da mesma loja disputavam a mesma área da
       // tela ao mesmo tempo. Centralizar aqui remove essa corrida.
       async function refreshUserData() {
+        await carregarPerfil();
         await carregarMinhasLojas();
         await carregarCarrinho();
         await carregarPedidos();
@@ -1600,6 +1885,9 @@
 
       window.showPage = showPage;
       window.loginGoogle = loginGoogle;
+      window.loginEmailSenha = loginEmailSenha;
+      window.signUpEmailSenha = signUpEmailSenha;
+      window.atualizarPerfil = atualizarPerfil;
       window.logout = logout;
       window.editarProdutoPorId = (produtoId) => {
         const produto = state.produtosGerenciados.find((p) => p.id === produtoId) || state.produtosVitrine.find((p) => p.id === produtoId);
@@ -1679,7 +1967,7 @@
       window.adicionarCarrinho = async (produtoId, lojaId, preco) => {
         if (!state.usuario || !state.token) return alert('Faça login para adicionar produtos ao carrinho.');
         const produto = state.produtosVitrine.find((p) => p.id === produtoId);
-        const disponivel = produto && produto.ativo !== false && (produto.disponivel !== false ? produto.disponivel : produto.quantidade_estoque > 0);
+        const disponivel = produtoEstaDisponivel(produto);
         if (!produto || !disponivel) {
           return alert('Este produto não está disponível para compra no momento.');
         }
@@ -1724,6 +2012,14 @@
       };
       window.finalizarPedido = async () => {
         if (!state.usuario || !state.token || !state.carrinhoId) return alert('Você precisa adicionar produtos ao carrinho primeiro.');
+        if (!state.usuario.email) {
+          window.location.hash = 'perfil';
+          return alert('Seu email precisa estar presente no perfil para finalizar o pedido.');
+        }
+        if (!state.perfil?.telefone) {
+          window.location.hash = 'perfil';
+          return alert('Seu telefone precisa estar presente no perfil para finalizar o pedido.');
+        }
         const response = await fetch('/pedidos/finalizar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },

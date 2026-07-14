@@ -256,11 +256,22 @@ create table if not exists public.pedidos (
   id uuid primary key default uuid_generate_v4(),
   cliente_id uuid not null references public.perfis(id) on delete cascade,
   loja_id uuid not null references public.lojas(id) on delete cascade,
+  cliente_nome text,
+  cliente_telefone text,
+  cliente_email text,
+  forma_pagamento text not null default 'WhatsApp',
+  parcelas integer not null default 1,
   status text not null default 'pendente' check (status in ('pendente','confirmado','cancelado','concluido')),
   total numeric(10,2) not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.pedidos add column if not exists cliente_nome text;
+alter table public.pedidos add column if not exists cliente_telefone text;
+alter table public.pedidos add column if not exists cliente_email text;
+alter table public.pedidos add column if not exists forma_pagamento text not null default 'WhatsApp';
+alter table public.pedidos add column if not exists parcelas integer not null default 1;
 
 create index if not exists pedidos_loja_id_idx on public.pedidos (loja_id);
 create index if not exists pedidos_cliente_id_idx on public.pedidos (cliente_id);
@@ -391,6 +402,9 @@ declare
   v_cliente_id uuid;
   v_loja_id uuid;
   v_pedido_id uuid;
+  v_cliente_nome text;
+  v_cliente_telefone text;
+  v_cliente_email text;
   v_total numeric(10,2) := 0;
   v_itens_insuficientes jsonb := '[]'::jsonb;
   item record;
@@ -411,8 +425,13 @@ begin
     raise exception 'Carrinho vazio';
   end if;
 
-  insert into public.pedidos (cliente_id, loja_id, status, total)
-  values (v_cliente_id, v_loja_id, 'pendente', 0)
+  select p.nome, p.telefone, u.email into v_cliente_nome, v_cliente_telefone, v_cliente_email
+  from public.perfis p
+  left join auth.users u on u.id = v_cliente_id
+  where p.id = v_cliente_id;
+
+  insert into public.pedidos (cliente_id, loja_id, cliente_nome, cliente_telefone, cliente_email, forma_pagamento, parcelas, status, total)
+  values (v_cliente_id, v_loja_id, v_cliente_nome, v_cliente_telefone, v_cliente_email, 'WhatsApp', 1, 'pendente', 0)
   returning id into v_pedido_id;
 
   for item in
