@@ -221,6 +221,50 @@
         .qty-row { width: 100%; }
         .row button { flex: 1 1 auto; justify-content: center; }
       }
+
+      /* -----------------------------------------------------------------
+         BARRA DE NAVEGAÇÃO INFERIOR (mobile)
+         Substitui a dependência do menu hambúrguer para as seções mais
+         usadas (Início, Lojas, Vitrine, Carrinho, Perfil). O menu lateral
+         continua acessível pelo botão "Menu" para as seções secundárias
+         (Minhas lojas, Cadastrar produto, Pedidos, Tema, Sair).
+         ----------------------------------------------------------------- */
+      .bottom-nav {
+        display: none;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 900;
+        background: var(--sb-surface);
+        border-top: 1px solid var(--sb-border);
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+        padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+      }
+      .bottom-nav-list { display: flex; align-items: stretch; justify-content: space-between; }
+      .bottom-nav .nav-item {
+        flex: 1 1 0;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        padding: 6px 2px;
+        border-radius: 10px;
+        font-size: 10px;
+        font-weight: 600;
+        text-align: center;
+        box-shadow: none;
+      }
+      .bottom-nav .nav-item i { width: auto; font-size: 18px; margin: 0; }
+      .bottom-nav .nav-item.active { background: var(--sb-accent-dim); box-shadow: none; }
+      .bottom-nav .nav-item.active i,
+      .bottom-nav .nav-item.active { color: var(--sb-accent); }
+      .bottom-nav .nav-item span { display: block; line-height: 1.1; }
+
+      @media (max-width: 992px) {
+        .bottom-nav { display: block; }
+        .main-content { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+      }
     </style>
   </head>
   <body>
@@ -326,8 +370,8 @@
 
       <section class="page-section" id="page-lojas">
         <div class="card">
-          <h2><i class="fas fa-magnifying-glass"></i> Buscar lojas ou produtos</h2>
-          <p class="muted" style="margin-top:8px;">Digite o nome de uma loja ou de um produto para encontrar quem vende.</p>
+          <h2><i class="fas fa-shop"></i> Lojas</h2>
+          <p class="muted" style="margin-top:8px;">Todas as lojas cadastradas aparecem aqui. Busque por nome ou produto, ou filtre pelas mais próximas de você.</p>
           <div class="row" style="margin-top:12px;">
             <div class="field" style="flex:1; min-width:220px; margin-bottom:0;">
               <label>Buscar</label>
@@ -335,34 +379,28 @@
             </div>
             <button class="btn-primary" id="btnBuscarLojas" type="button"><i class="fas fa-magnifying-glass"></i> Buscar</button>
           </div>
-          <div id="buscaLojasArea" style="margin-top:16px;"></div>
-        </div>
-
-        <div class="card" style="margin-top:16px;">
-          <h2><i class="fas fa-map-marked-alt"></i> Lojas próximas</h2>
-          <p class="muted" style="margin-top:8px;">Permita acesso à localização para listar estabelecimentos perto de você.</p>
-          <div class="row" style="margin-top:12px;">
-            <div class="field" style="flex:1; min-width:180px; margin-bottom:0;">
-              <label>Raio em km</label>
-              <input type="number" id="raioLojaKm" min="1" max="100" value="15" />
+          <div class="row" style="margin-top:8px;">
+            <button class="btn-secondary" id="btnBuscarLojasProximas" type="button"><i class="fas fa-location-dot"></i> Perto de mim</button>
+            <div class="field" id="raioLojaKmWrap" style="flex:0 0 120px; margin-bottom:0;" hidden>
+              <input type="number" id="raioLojaKm" min="1" max="100" value="15" title="Raio em km" />
             </div>
-            <button class="btn-primary" id="btnBuscarLojasProximas" type="button"><i class="fas fa-location-dot"></i> Buscar perto de mim</button>
+            <button class="btn-secondary" id="btnLimparFiltroLojas" type="button" hidden><i class="fas fa-rotate-left"></i> Ver todas</button>
           </div>
-          <div id="lojasArea" style="margin-top:16px;"></div>
+          <p class="muted" id="lojasStatus" style="margin-top:10px;"></p>
+          <div id="lojasArea" style="margin-top:12px;"></div>
         </div>
       </section>
 
       <section class="page-section" id="page-vitrine">
         <div class="card">
-          <h2><i class="fas fa-store"></i> Vitrine da loja</h2>
-          <p class="muted" style="margin-top:8px;">Veja a vitrine da loja selecionada, compartilhe e adicione itens ao carrinho.</p>
-          <div class="row" style="margin-top:12px;">
-            <div class="field" style="flex:1; min-width:220px; margin-bottom:0;">
-              <label>Loja</label>
-              <select id="vitrineLojaSelect"></select>
+          <div class="row" style="margin-top:0; justify-content:space-between; align-items:center;">
+            <h2 style="margin:0;"><i class="fas fa-store"></i> Vitrine da loja</h2>
+            <div class="row" style="margin-top:0;">
+              <button class="btn-secondary" id="btnVoltarLojas" type="button"><i class="fas fa-arrow-left"></i> Voltar</button>
+              <button class="btn-secondary" id="btnAtualizarVitrine" type="button"><i class="fas fa-rotate-right"></i> Atualizar</button>
             </div>
-            <button class="btn-secondary" id="btnAtualizarVitrine" type="button"><i class="fas fa-rotate-right"></i> Atualizar</button>
           </div>
+          <p class="muted" style="margin-top:8px;">Escolha uma loja na aba "Lojas" para ver os produtos, compartilhar e adicionar itens ao carrinho.</p>
           <div id="vitrineArea" style="margin-top:16px;"></div>
         </div>
       </section>
@@ -562,6 +600,16 @@
       </section>
     </main>
 
+    <nav class="bottom-nav" id="bottomNav" aria-label="Navegação principal">
+      <div class="bottom-nav-list">
+        <a class="nav-item active" href="#home" data-page="home"><i class="fas fa-home"></i><span>Início</span></a>
+        <a class="nav-item" href="#lojas" data-page="lojas"><i class="fas fa-map-marked-alt"></i><span>Lojas</span></a>
+        <a class="nav-item" href="#vitrine" data-page="vitrine"><i class="fas fa-store"></i><span>Vitrine</span></a>
+        <a class="nav-item" href="#carrinho" data-page="carrinho"><i class="fas fa-shopping-cart"></i><span>Carrinho</span></a>
+        <a class="nav-item" href="#perfil" data-page="perfil"><i class="fas fa-user-circle"></i><span>Perfil</span></a>
+      </div>
+    </nav>
+
     <script type="module">
       import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -571,7 +619,8 @@
         lojaSelecionadaManual: false,
         carrinhoId: null,
         lojas: [],
-        lojasPublicas: [],
+        lojasTodas: [],
+        lojasExibidas: [],
         minhasLojas: [],
         produtosVitrine: [],
         produtosGerenciados: [],
@@ -587,13 +636,14 @@
       const sidebarClinic = document.getElementById('sidebarClinic');
       const dashboardArea = document.getElementById('dashboardArea');
       const lojasArea = document.getElementById('lojasArea');
-      const buscaLojasArea = document.getElementById('buscaLojasArea');
+      const lojasStatusEl = document.getElementById('lojasStatus');
       const buscaLojaTermoInput = document.getElementById('buscaLojaTermo');
       const btnBuscarLojas = document.getElementById('btnBuscarLojas');
       const vitrineArea = document.getElementById('vitrineArea');
-      const vitrineLojaSelect = document.getElementById('vitrineLojaSelect');
       const raioLojaKmInput = document.getElementById('raioLojaKm');
+      const raioLojaKmWrap = document.getElementById('raioLojaKmWrap');
       const btnBuscarLojasProximas = document.getElementById('btnBuscarLojasProximas');
+      const btnLimparFiltroLojas = document.getElementById('btnLimparFiltroLojas');
       const btnAtualizarVitrine = document.getElementById('btnAtualizarVitrine');
       const produtosGerenciarArea = document.getElementById('produtosGerenciarArea');
       const carrinhoArea = document.getElementById('carrinhoArea');
@@ -633,10 +683,8 @@
 
         bindEvents();
         await carregarUsuario();
-        await carregarLojasPublicas();
-        await carregarMinhasLojas();
+        await carregarTodasLojas();
         await carregarVitrinePadrao();
-        await carregarPedidos();
       }
 
       function bindEvents() {
@@ -662,12 +710,7 @@
           localStorage.setItem('theme', next);
         });
 
-        document.getElementById('logoutBtn').addEventListener('click', async () => {
-          await state.supabase.auth.signOut();
-          state.usuario = null;
-          state.token = null;
-          render();
-        });
+        document.getElementById('logoutBtn').addEventListener('click', () => logout());
 
         document.getElementById('mobileMenuBtn').addEventListener('click', () => {
           document.getElementById('appSidebar').classList.toggle('open');
@@ -690,14 +733,33 @@
         });
 
         document.getElementById('btnHomeToVitrine').addEventListener('click', () => showPage('vitrine'));
-        btnBuscarLojasProximas.addEventListener('click', () => carregarLojasProximas(Number(raioLojaKmInput.value || 15)));
-        btnBuscarLojas.addEventListener('click', () => buscarLojas(buscaLojaTermoInput.value));
+        document.getElementById('btnVoltarLojas').addEventListener('click', () => showPage('lojas'));
+
+        btnBuscarLojasProximas.addEventListener('click', () => {
+          raioLojaKmWrap.hidden = false;
+          btnLimparFiltroLojas.hidden = false;
+          carregarLojasProximas(Number(raioLojaKmInput.value || 15));
+        });
+        raioLojaKmInput.addEventListener('change', () => carregarLojasProximas(Number(raioLojaKmInput.value || 15)));
+
+        btnBuscarLojas.addEventListener('click', () => {
+          btnLimparFiltroLojas.hidden = false;
+          buscarLojas(buscaLojaTermoInput.value);
+        });
         buscaLojaTermoInput.addEventListener('keydown', (event) => {
           if (event.key === 'Enter') {
             event.preventDefault();
+            btnLimparFiltroLojas.hidden = false;
             buscarLojas(buscaLojaTermoInput.value);
           }
         });
+        btnLimparFiltroLojas.addEventListener('click', () => {
+          buscaLojaTermoInput.value = '';
+          raioLojaKmWrap.hidden = true;
+          btnLimparFiltroLojas.hidden = true;
+          carregarTodasLojas();
+        });
+
         btnAtualizarVitrine.addEventListener('click', () => {
           if (state.lojaSelecionada) {
             carregarVitrine(state.lojaSelecionada);
@@ -705,12 +767,6 @@
           } else {
             carregarVitrinePadrao();
           }
-        });
-        vitrineLojaSelect.addEventListener('change', async (event) => {
-          state.lojaSelecionada = event.target.value;
-          state.lojaSelecionadaManual = true;
-          await carregarVitrine(state.lojaSelecionada);
-          await carregarCarrinho();
         });
 
         [lojaLogoUrlInput, lojaCoverUrlInput, lojaPrimaryColorInput, lojaSecondaryColorInput, lojaAccentColorInput, lojaHeroTitleInput, lojaHeroSubtitleInput].forEach((input) => {
@@ -974,6 +1030,7 @@
         state.usuario = session?.user || null;
         state.token = session?.access_token || null;
         render();
+        if (state.usuario) await refreshUserData();
       }
 
       async function loginGoogle() {
@@ -991,6 +1048,8 @@
         }
         state.usuario = null;
         state.token = null;
+        state.minhasLojas = [];
+        state.carrinhoId = null;
         render();
       }
 
@@ -1015,20 +1074,33 @@
         `;
       }
 
-      async function carregarLojasPublicas() {
+      // Só busca os dados (usado como fallback interno, ex: carregarVitrinePadrao),
+      // sem mexer na tela de listagem de lojas.
+      async function fetchTodasLojas() {
         try {
           const response = await fetch('/lojas');
           const lojas = await response.json();
-          state.lojasPublicas = Array.isArray(lojas) ? lojas : [];
-          if (!state.lojasPublicas.length) return;
-
-          vitrineLojaSelect.innerHTML = state.lojasPublicas.map((loja) => `<option value="${loja.id}" ${state.lojaSelecionada === loja.id ? 'selected' : ''}>${loja.nome}</option>`).join('');
-          if (!state.lojaSelecionada && state.lojasPublicas[0]) {
-            state.lojaSelecionada = state.lojasPublicas[0].id;
-          }
+          state.lojasTodas = response.ok && Array.isArray(lojas) ? lojas : [];
         } catch (error) {
-          console.warn('Não foi possível carregar as lojas públicas', error);
+          console.warn('Não foi possível carregar as lojas cadastradas', error);
         }
+        return state.lojasTodas;
+      }
+
+      // Listagem padrão da tela "Lojas": todas as lojas ativas cadastradas
+      // no sistema, mesmo que nenhuma esteja perto do cliente. É o que
+      // aparece assim que a aba é aberta, antes de qualquer busca ou
+      // filtro de localização.
+      async function carregarTodasLojas() {
+        lojasStatusEl.textContent = 'Todas as lojas cadastradas';
+        lojasArea.innerHTML = '<div class="empty">Carregando lojas...</div>';
+        await fetchTodasLojas();
+        state.lojasExibidas = state.lojasTodas;
+        if (!state.lojasTodas.length) {
+          lojasArea.innerHTML = '<div class="empty">Nenhuma loja cadastrada ainda.</div>';
+          return;
+        }
+        lojasArea.innerHTML = state.lojasTodas.map((loja) => renderCardLoja(loja)).join('');
       }
 
       function renderCardLoja(loja) {
@@ -1055,30 +1127,32 @@
       async function buscarLojas(termoBruto) {
         const termo = (termoBruto || '').trim();
         if (termo.length < 2) {
-          buscaLojasArea.innerHTML = '<div class="empty">Digite ao menos 2 caracteres para buscar.</div>';
-          return;
+          // Campo vazio ou muito curto: não é erro, só volta pra listagem padrão.
+          return carregarTodasLojas();
         }
 
-        buscaLojasArea.innerHTML = '<div class="empty">Buscando...</div>';
+        lojasStatusEl.textContent = `Resultados para "${termo}"`;
+        lojasArea.innerHTML = '<div class="empty">Buscando...</div>';
         try {
           const response = await fetch(`/lojas/buscar?q=${encodeURIComponent(termo)}`);
           const resultado = await response.json();
           if (!response.ok) {
-            buscaLojasArea.innerHTML = `<div class="empty">${resultado.erro || 'Não foi possível buscar agora.'}</div>`;
+            lojasArea.innerHTML = `<div class="empty">${resultado.erro || 'Não foi possível buscar agora.'}</div>`;
             return;
           }
           const lojas = Array.isArray(resultado) ? resultado : [];
+          state.lojasExibidas = lojas;
           if (!lojas.length) {
-            buscaLojasArea.innerHTML = '<div class="empty">Nenhuma loja ou produto encontrado para essa busca.</div>';
+            lojasArea.innerHTML = '<div class="empty">Nenhuma loja ou produto encontrado para essa busca.</div>';
             return;
           }
-          buscaLojasArea.innerHTML = lojas.map((loja) => renderCardLoja({
+          lojasArea.innerHTML = lojas.map((loja) => renderCardLoja({
             ...loja,
             encontrado_por: loja.produtos_correspondentes?.length ? 'produto' : 'loja',
             produto_nome: loja.produtos_correspondentes?.join(', ')
           })).join('');
         } catch (error) {
-          buscaLojasArea.innerHTML = '<div class="empty">Não foi possível buscar agora.</div>';
+          lojasArea.innerHTML = '<div class="empty">Não foi possível buscar agora.</div>';
         }
       }
 
@@ -1088,17 +1162,33 @@
           return;
         }
 
+        lojasStatusEl.textContent = 'Buscando sua localização...';
+        lojasArea.innerHTML = '<div class="empty">Buscando lojas perto de você...</div>';
+
         navigator.geolocation.getCurrentPosition(async (pos) => {
           const { latitude, longitude } = pos.coords;
-          const response = await fetch(`/lojas/proximas?lat=${latitude}&lng=${longitude}&raio_km=${raioKm}`);
-          const lojas = await response.json();
-          state.lojas = Array.isArray(lojas) ? lojas : [];
-          if (!state.lojas.length) {
-            lojasArea.innerHTML = '<div class="empty">Nenhuma loja próxima foi encontrada para este raio.</div>';
-            return;
+          try {
+            const response = await fetch(`/lojas/proximas?lat=${latitude}&lng=${longitude}&raio_km=${raioKm}`);
+            const lojas = await response.json();
+            if (!response.ok) {
+              lojasStatusEl.textContent = '';
+              lojasArea.innerHTML = `<div class="empty">${lojas.erro || 'Não foi possível buscar lojas próximas.'}</div>`;
+              return;
+            }
+            state.lojas = Array.isArray(lojas) ? lojas : [];
+            state.lojasExibidas = state.lojas;
+            lojasStatusEl.textContent = `Lojas em até ${raioKm} km de você`;
+            if (!state.lojas.length) {
+              lojasArea.innerHTML = '<div class="empty">Nenhuma loja próxima foi encontrada para este raio.</div>';
+              return;
+            }
+            lojasArea.innerHTML = state.lojas.map((loja) => renderCardLoja(loja)).join('');
+          } catch (error) {
+            lojasStatusEl.textContent = '';
+            lojasArea.innerHTML = '<div class="empty">Não foi possível buscar lojas próximas agora.</div>';
           }
-          lojasArea.innerHTML = state.lojas.map((loja) => renderCardLoja(loja)).join('');
         }, () => {
+          lojasStatusEl.textContent = '';
           lojasArea.innerHTML = '<div class="empty">Permita a localização para ver lojas próximas.</div>';
         });
       }
@@ -1145,13 +1235,28 @@
 
       async function carregarVitrine(lojaId) {
         if (!lojaId) return;
+        vitrineArea.innerHTML = '<div class="empty">Carregando vitrine...</div>';
+
+        let produtosResponse, lojaResponse, produtos, loja;
+        try {
+          [produtosResponse, lojaResponse] = await Promise.all([
+            fetch(`/produtos/loja/${lojaId}/vitrine`),
+            fetch(`/lojas/${lojaId}`)
+          ]);
+          produtos = await produtosResponse.json();
+          loja = await lojaResponse.json().catch(() => null);
+        } catch (error) {
+          console.error('Erro ao carregar a vitrine', error);
+          vitrineArea.innerHTML = '<div class="empty">Não foi possível carregar esta vitrine agora. Toque em "Atualizar" para tentar de novo.</div>';
+          return;
+        }
+
+        if (!produtosResponse.ok) {
+          vitrineArea.innerHTML = `<div class="empty">${produtos?.erro || 'Não foi possível carregar os produtos desta loja.'}</div>`;
+          return;
+        }
+
         const souDono = state.minhasLojas.some((l) => l.id === lojaId);
-        const [produtosResponse, lojaResponse] = await Promise.all([
-          fetch(`/produtos/loja/${lojaId}/vitrine`),
-          fetch(`/lojas/${lojaId}`)
-        ]);
-        const produtos = await produtosResponse.json();
-        const loja = await lojaResponse.json().catch(() => null);
         state.produtosVitrine = Array.isArray(produtos) ? produtos : [];
 
         if (souDono) {
@@ -1209,7 +1314,7 @@
       }
 
       async function carregarVitrinePadrao() {
-        await carregarLojasPublicas();
+        if (!state.lojasTodas.length) await fetchTodasLojas();
         const params = new URLSearchParams(window.location.search);
         const lojaParam = params.get('loja');
 
@@ -1218,22 +1323,12 @@
           if (!state.lojaSelecionadaManual && state.minhasLojas.length) {
             lojaAlvo = state.minhasLojas[0].id;
           } else {
-            lojaAlvo = state.lojaSelecionada || state.lojasPublicas?.[0]?.id || state.lojas?.[0]?.id;
+            lojaAlvo = state.lojaSelecionada || state.lojasTodas?.[0]?.id || state.lojas?.[0]?.id;
           }
         }
 
         if (lojaAlvo) {
           state.lojaSelecionada = lojaAlvo;
-          if (vitrineLojaSelect) {
-            if (!Array.from(vitrineLojaSelect.options).some((opt) => opt.value === lojaAlvo) && state.minhasLojas.some((l) => l.id === lojaAlvo)) {
-              const minhaLoja = state.minhasLojas.find((l) => l.id === lojaAlvo);
-              const option = document.createElement('option');
-              option.value = minhaLoja.id;
-              option.textContent = minhaLoja.nome;
-              vitrineLojaSelect.prepend(option);
-            }
-            vitrineLojaSelect.value = lojaAlvo;
-          }
           await carregarVitrine(lojaAlvo);
           await carregarCarrinho();
         }
@@ -1389,9 +1484,18 @@
             </div>
           </div>
         `;
-        carregarMinhasLojas();
-        carregarCarrinho();
-        carregarPedidos();
+      }
+
+      // Único ponto que dispara o carregamento dos dados do usuário logado
+      // (lojas, carrinho, pedidos). Antes essas três chamadas também
+      // rodavam soltas dentro de render(), e render() é chamado tanto por
+      // carregarUsuario() quanto por onAuthStateChange - então às vezes
+      // duas cargas concorrentes da mesma loja disputavam a mesma área da
+      // tela ao mesmo tempo. Centralizar aqui remove essa corrida.
+      async function refreshUserData() {
+        await carregarMinhasLojas();
+        await carregarCarrinho();
+        await carregarPedidos();
       }
 
       window.showPage = showPage;
@@ -1415,7 +1519,7 @@
         alert('Produto excluído com sucesso');
       };
       window.compartilharVitrine = async (lojaId) => {
-        const loja = [...state.minhasLojas, ...state.lojasPublicas, ...state.lojas].find((l) => l.id === lojaId);
+        const loja = [...state.minhasLojas, ...state.lojasTodas, ...state.lojas].find((l) => l.id === lojaId);
         const shareUrl = new URL(window.location.href);
         shareUrl.searchParams.set('loja', lojaId);
         shareUrl.searchParams.delete('produto');
@@ -1455,7 +1559,6 @@
       window.selecionarLoja = async (lojaId) => {
         state.lojaSelecionada = lojaId;
         state.lojaSelecionadaManual = true;
-        if (vitrineLojaSelect) vitrineLojaSelect.value = lojaId;
         showPage('vitrine');
         await carregarVitrine(lojaId);
         await carregarCarrinho();
@@ -1506,6 +1609,7 @@
         state.usuario = session?.user || null;
         state.token = session?.access_token || null;
         render();
+        if (state.usuario) refreshUserData();
       });
 
       document.getElementById('produtoLojaId').addEventListener('change', async (event) => {

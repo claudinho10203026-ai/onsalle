@@ -156,6 +156,25 @@ router.post('/', autenticar, async (req, res) => {
   res.status(201).json(data);
 });
 
+// Listar todas as lojas ativas (público) - é a listagem padrão da tela
+// "Lojas", mostrada mesmo sem busca ou filtro de localização. Antes essa
+// rota não existia: o front-end chamava fetch('/lojas') e recebia 404, por
+// isso nenhuma loja aparecia por padrão nem no seletor da vitrine.
+router.get('/', async (req, res) => {
+  if (!supabaseAdmin) {
+    return res.status(503).json({ erro: 'Supabase não configurado. Configure o projeto no .env.' });
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('lojas')
+    .select('id, nome, descricao, endereco, whatsapp, logo_url, cover_url, cidade, estado, created_at')
+    .eq('ativo', true)
+    .order('created_at', { ascending: false });
+
+  if (error) return res.status(400).json({ erro: error.message });
+  res.json(data || []);
+});
+
 // Listar lojas do usuário autenticado
 router.get('/minhas', autenticar, async (req, res) => {
   const { data, error } = await req.supabase
