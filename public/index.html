@@ -691,12 +691,29 @@
         showPage(initialPage);
       }
 
+      function closeSidebar() {
+        const sidebar = document.getElementById('appSidebar');
+        sidebar.classList.remove('open');
+        document.getElementById('sidebarOverlay').classList.remove('active');
+      }
+
+      function handleHashChange() {
+        const page = window.location.hash.replace('#', '') || 'home';
+        if (page) showPage(page);
+      }
+
       function bindEvents() {
-        document.querySelectorAll('.nav-item').forEach((item) => {
+        document.querySelectorAll('.nav-item[data-page]').forEach((item) => {
           item.addEventListener('click', (event) => {
             event.preventDefault();
-            const page = item.getAttribute('data-page');
-            showPage(page);
+            const page = item.dataset.page;
+            if (!page) return;
+            if (window.location.hash !== `#${page}`) {
+              window.location.hash = page;
+            } else {
+              showPage(page);
+            }
+            closeSidebar();
           });
         });
 
@@ -721,10 +738,7 @@
           document.getElementById('sidebarOverlay').classList.toggle('active');
         });
 
-        document.getElementById('sidebarOverlay').addEventListener('click', () => {
-          document.getElementById('appSidebar').classList.remove('open');
-          document.getElementById('sidebarOverlay').classList.remove('active');
-        });
+        document.getElementById('sidebarOverlay').addEventListener('click', closeSidebar);
 
         document.getElementById('sidebarToggleBtn').addEventListener('click', () => {
           const sidebar = document.getElementById('appSidebar');
@@ -736,12 +750,14 @@
           }
         });
 
-        document.getElementById('btnHomeToVitrine').addEventListener('click', () => showPage('vitrine'));
-        document.getElementById('btnVoltarLojas').addEventListener('click', () => showPage('lojas'));
-        window.addEventListener('hashchange', () => {
-          const page = window.location.hash.replace('#', '') || 'home';
-          if (page) showPage(page);
+        document.getElementById('btnHomeToVitrine').addEventListener('click', () => {
+          window.location.hash = 'vitrine';
         });
+        document.getElementById('btnVoltarLojas').addEventListener('click', () => {
+          window.location.hash = 'lojas';
+        });
+        window.addEventListener('hashchange', handleHashChange);
+        window.addEventListener('popstate', handleHashChange);
 
         btnBuscarLojasProximas.addEventListener('click', () => {
           raioLojaKmWrap.hidden = false;
@@ -816,50 +832,6 @@
 
         produtoCancelarEdicaoBtn.addEventListener('click', () => {
           resetProdutoForm();
-        });
-
-        lojaForm.addEventListener('submit', async (event) => {
-          event.preventDefault();
-          if (!state.usuario) return alert('Faça login para criar uma loja.');
-
-          const cepLimpo = lojaCepInput.value.replace(/\D/g, '');
-          if (cepLimpo.length !== 8) {
-            lojaCepStatus.textContent = 'Informe um CEP válido com 8 dígitos.';
-            lojaCepStatus.className = 'cep-status erro';
-            lojaCepInput.focus();
-            return;
-          }
-
-          const payload = {
-            nome: document.getElementById('lojaNome').value,
-            descricao: document.getElementById('lojaDescricao').value,
-            whatsapp: document.getElementById('lojaWhatsapp').value,
-            documento: document.getElementById('lojaDocumento').value,
-            tipo_documento: document.getElementById('lojaTipoDocumento').value,
-            cep: cepLimpo,
-            numero: lojaNumeroInput.value,
-            logo_url: lojaLogoUrlInput.value,
-            cover_url: lojaCoverUrlInput.value,
-            primary_color: lojaPrimaryColorInput.value,
-            secondary_color: lojaSecondaryColorInput.value,
-            accent_color: lojaAccentColorInput.value,
-            hero_title: lojaHeroTitleInput.value,
-            hero_subtitle: lojaHeroSubtitleInput.value
-          };
-          const response = await fetch('/lojas', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
-            body: JSON.stringify(payload)
-          });
-          const result = await response.json();
-          if (!response.ok) return alert(result.erro || 'Não foi possível criar a loja');
-          lojaForm.reset();
-          syncStorePreview();
-          lojaCepStatus.textContent = '';
-          lojaCepStatus.className = 'cep-status';
-          state.lojaSelecionadaManual = false;
-          await carregarMinhasLojas();
-          showPage('minhas-lojas');
         });
 
         produtoForm.addEventListener('submit', async (event) => {
@@ -1030,7 +1002,15 @@
             dataUrl
           })
         });
-        const result = await response.json();
+
+        const text = await response.text();
+        let result;
+        try {
+          result = JSON.parse(text);
+        } catch (error) {
+          throw new Error(text || 'Resposta inesperada ao enviar a imagem.');
+        }
+
         if (!response.ok) {
           throw new Error(result.erro || 'Não foi possível enviar a imagem.');
         }
@@ -1218,7 +1198,8 @@
 
       async function carregarLojasProximas(raioKm = 15) {
         if (!navigator.geolocation) {
-          lojasArea.innerHTML = '<div class="empty">Geolocalização não suportada pelo navegador.</div>';
+          lojasArea.innerHTML = '<div class="empty">Geolocalização não suportada pelo navegador. Exibindo todas as lojas.</div>';
+          await carregarTodasLojas();
           return;
         }
 
@@ -1245,11 +1226,13 @@
             lojasArea.innerHTML = state.lojas.map((loja) => renderCardLoja(loja)).join('');
           } catch (error) {
             lojasStatusEl.textContent = '';
-            lojasArea.innerHTML = '<div class="empty">Não foi possível buscar lojas próximas agora.</div>';
+            lojasArea.innerHTML = '<div class="empty">Não foi possível buscar lojas próximas agora. Exibindo todas as lojas.</div>';
+            await carregarTodasLojas();
           }
-        }, () => {
+        }, async () => {
           lojasStatusEl.textContent = '';
-          lojasArea.innerHTML = '<div class="empty">Permita a localização para ver lojas próximas.</div>';
+          lojasArea.innerHTML = '<div class="empty">Permita a localização para ver lojas próximas. Exibindo todas as lojas.</div>';
+          await carregarTodasLojas();
         });
       }
 
@@ -1501,11 +1484,17 @@
       }
 
       function showPage(page) {
+        const targetPage = page || 'home';
         document.querySelectorAll('.page-section').forEach((section) => section.classList.remove('active'));
-        document.getElementById(`page-${page}`)?.classList.add('active');
-        document.querySelectorAll('.nav-item').forEach((item) => item.classList.toggle('active', item.getAttribute('data-page') === page));
-        document.getElementById('appSidebar').classList.remove('open');
-        document.getElementById('sidebarOverlay').classList.remove('active');
+        const targetSection = document.getElementById(`page-${targetPage}`);
+        if (!targetSection) {
+          console.warn('[NAVEGAÇÃO] Página não encontrada:', targetPage);
+          return;
+        }
+        targetSection.classList.add('active');
+        document.querySelectorAll('.nav-item[data-page]').forEach((item) => item.classList.toggle('active', item.dataset.page === targetPage));
+        closeSidebar();
+        history.replaceState(null, '', `#${targetPage}`);
         const titles = {
           home: { title: 'Início', subtitle: 'Conecte clientes, cadastre produtos e converta pedidos em WhatsApp.' },
           lojas: { title: 'Lojas próximas', subtitle: 'Busque por nome, produto ou veja negócios perto de você.' },

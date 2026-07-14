@@ -21,6 +21,10 @@ router.get('/loja/:lojaId/vitrine', async (req, res) => {
 });
 
 // Upload real de foto para o Supabase Storage
+router.get('/upload-foto', (req, res) => {
+  res.status(405).json({ erro: 'Use POST para enviar a imagem.' });
+});
+
 router.post('/upload-foto', autenticar, async (req, res) => {
   const { fileName, contentType, dataUrl } = req.body;
 
