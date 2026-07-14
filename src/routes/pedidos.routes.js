@@ -23,10 +23,12 @@ router.post('/finalizar', autenticar, async (req, res) => {
     return res.status(503).json({ erro: 'Supabase não configurado. Configure o projeto no .env.' });
   }
 
-  const { carrinho_id } = req.body;
+  const { carrinho_id, forma_pagamento, parcelas } = req.body;
 
   const { data: resultado, error } = await req.supabase.rpc('finalizar_pedido', {
-    p_carrinho_id: carrinho_id
+    p_carrinho_id: carrinho_id,
+    p_forma_pagamento: forma_pagamento,
+    p_parcelas: parcelas
   });
 
   if (error) return res.status(400).json({ erro: error.message });
@@ -36,7 +38,7 @@ router.post('/finalizar', autenticar, async (req, res) => {
 
   const { data: pedido } = await supabaseAdmin
     .from('pedidos')
-    .select('*, pedido_itens(*), lojas(whatsapp, dono_id)')
+    .select('*, pedido_itens(*), pedido_parcelas(*), lojas(whatsapp, dono_id)')
     .eq('id', pedidoId)
     .single();
 

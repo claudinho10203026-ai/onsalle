@@ -289,6 +289,18 @@ create table if not exists public.pedido_itens (
   preco_unitario numeric(10,2) not null
 );
 
+create table if not exists public.pedido_parcelas (
+  id uuid primary key default uuid_generate_v4(),
+  pedido_id uuid not null references public.pedidos(id) on delete cascade,
+  numero integer not null check (numero > 0),
+  valor numeric(10,2) not null check (valor >= 0),
+  forma_pagamento text,
+  status text not null default 'pendente' check (status in ('pendente','pago')),
+  pago_em timestamptz,
+  created_at timestamptz not null default now(),
+  unique (pedido_id, numero)
+);
+
 -- ---------------------------------------------------------------------
 -- INSCRIÇÕES DE PUSH NOTIFICATION (Web Push - notificação no celular)
 -- ---------------------------------------------------------------------
@@ -393,7 +405,11 @@ $$;
 -- (em vez de ir negativo) e entram na lista itens_insuficientes devolvida
 -- ao back-end, que repassa isso ao front-end para avisar o cliente a
 -- confirmar a disponibilidade com a loja pelo WhatsApp.
-create or replace function public.finalizar_pedido(p_carrinho_id uuid)
+create or replace function public.finalizar_pedido(
+  p_carrinho_id uuid,
+  p_forma_pagamento text default 'WhatsApp',
+  p_parcelas integer default 1
+)
 returns jsonb
 language plpgsql
 security definer
@@ -407,7 +423,11 @@ declare
   v_cliente_email text;
   v_total numeric(10,2) := 0;
   v_itens_insuficientes jsonb := '[]'::jsonb;
+  v_parcela_valor numeric(10,2);
+  v_valor numeric(10,2);
+  v_acumulado numeric(10,2) := 0;
   item record;
+  i integer;
 begin
   select cliente_id, loja_id into v_cliente_id, v_loja_id
   from public.carrinhos
@@ -438,8 +458,12 @@ begin
     raise exception 'Seu telefone precisa estar cadastrado no perfil para finalizar o pedido.';
   end if;
 
+  if p_parcelas is null or p_parcelas < 1 then
+    p_parcelas := 1;
+  end if;
+
   insert into public.pedidos (cliente_id, loja_id, cliente_nome, cliente_telefone, cliente_email, forma_pagamento, parcelas, status, total)
-  values (v_cliente_id, v_loja_id, v_cliente_nome, v_cliente_telefone, v_cliente_email, 'WhatsApp', 1, 'pendente', 0)
+  values (v_cliente_id, v_loja_id, v_cliente_nome, v_cliente_telefone, v_cliente_email, coalesce(p_forma_pagamento, 'WhatsApp'), p_parcelas, 'pendente', 0)
   returning id into v_pedido_id;
 
   for item in
@@ -475,6 +499,24 @@ begin
   end loop;
 
   update public.pedidos set total = v_total where id = v_pedido_id;
+
+  if p_parcelas <= 1 then
+    insert into public.pedido_parcelas (pedido_id, numero, valor, status)
+    values (v_pedido_id, 1, v_total, 'pendente');
+  else
+    v_parcela_valor := round(v_total / p_parcelas, 2);
+    for i in 1..p_parcelas loop
+      if i < p_parcelas then
+        v_valor := v_parcela_valor;
+      else
+        v_valor := round(v_total - v_acumulado, 2);
+      end if;
+      insert into public.pedido_parcelas (pedido_id, numero, valor, status)
+      values (v_pedido_id, i, v_valor, 'pendente');
+      v_acumulado := v_acumulado + v_valor;
+    end loop;
+  end if;
+
   update public.carrinhos set status = 'finalizado' where id = p_carrinho_id;
 
   return jsonb_build_object('pedido_id', v_pedido_id, 'itens_insuficientes', v_itens_insuficientes);
@@ -585,6 +627,26 @@ create policy "pedido_itens_select" on public.pedido_itens
     )
   );
 
+create policy "pedido_parcelas_select" on public.pedido_parcelas
+  for select using (
+    exists (
+      select 1 from public.pedidos pd
+      where pd.id = pedido_id
+        and (pd.cliente_id = auth.uid()
+          or exists (select 1 from public.lojas l where l.id = pd.loja_id and l.dono_id = auth.uid()))
+    )
+  );
+
+create policy "pedido_parcelas_update" on public.pedido_parcelas
+  for update using (
+    exists (
+      select 1 from public.pedidos pd
+      where pd.id = pedido_id
+        and (pd.cliente_id = auth.uid()
+          or exists (select 1 from public.lojas l where l.id = pd.loja_id and l.dono_id = auth.uid()))
+    )
+  );
+
 create policy "push_subscriptions_gerencia_proprio" on public.push_subscriptions
   for all using (auth.uid() = usuario_id);
 
@@ -600,9 +662,10 @@ grant select, insert, update, delete on public.lojas, public.produtos, public.ca
 grant select, insert, update, delete on public.carrinhos, public.carrinho_itens to authenticated;
 grant select, insert, update on public.pedidos to authenticated;
 grant select, insert on public.pedido_itens to authenticated;
+grant select, insert, update on public.pedido_parcelas to authenticated;
 grant select, insert, update, delete on public.push_subscriptions to authenticated;
 grant update on public.perfis to authenticated;
 
 grant execute on function public.buscar_lojas_proximas(double precision, double precision, double precision) to anon, authenticated;
 grant execute on function public.buscar_lojas(text) to anon, authenticated;
-grant execute on function public.finalizar_pedido(uuid) to authenticated;
+grant execute on function public.finalizar_pedido(uuid, text, integer) to authenticated;
