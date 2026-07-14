@@ -444,6 +444,7 @@
                   <input type="text" id="lojaNumero" placeholder="123" />
                 </div>
               </div>
+              <input type="hidden" id="lojaId" />
               <div class="field">
                 <label>Logo da vitrine</label>
                 <div class="photo-choice-row">
@@ -685,6 +686,9 @@
         await carregarUsuario();
         await carregarTodasLojas();
         await carregarVitrinePadrao();
+
+        const initialPage = window.location.hash.replace('#', '') || 'home';
+        showPage(initialPage);
       }
 
       function bindEvents() {
@@ -734,6 +738,10 @@
 
         document.getElementById('btnHomeToVitrine').addEventListener('click', () => showPage('vitrine'));
         document.getElementById('btnVoltarLojas').addEventListener('click', () => showPage('lojas'));
+        window.addEventListener('hashchange', () => {
+          const page = window.location.hash.replace('#', '') || 'home';
+          if (page) showPage(page);
+        });
 
         btnBuscarLojasProximas.addEventListener('click', () => {
           raioLojaKmWrap.hidden = false;
@@ -886,6 +894,58 @@
             await carregarVitrine(lojaId);
           }
           alert(eraEdicao ? 'Produto atualizado com sucesso' : 'Produto cadastrado com sucesso');
+        });
+
+        lojaForm.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          if (!state.usuario) return alert('Faça login para criar ou editar uma loja.');
+
+          const lojaId = document.getElementById('lojaId').value;
+          const cepLimpo = lojaCepInput.value.replace(/\D/g, '');
+          if (cepLimpo.length !== 8) {
+            lojaCepStatus.textContent = 'Informe um CEP válido com 8 dígitos.';
+            lojaCepStatus.className = 'cep-status erro';
+            lojaCepInput.focus();
+            return;
+          }
+
+          const payload = {
+            nome: document.getElementById('lojaNome').value,
+            descricao: document.getElementById('lojaDescricao').value,
+            whatsapp: document.getElementById('lojaWhatsapp').value,
+            documento: document.getElementById('lojaDocumento').value,
+            tipo_documento: document.getElementById('lojaTipoDocumento').value,
+            cep: cepLimpo,
+            numero: lojaNumeroInput.value,
+            logo_url: lojaLogoUrlInput.value,
+            cover_url: lojaCoverUrlInput.value,
+            primary_color: lojaPrimaryColorInput.value,
+            secondary_color: lojaSecondaryColorInput.value,
+            accent_color: lojaAccentColorInput.value,
+            hero_title: lojaHeroTitleInput.value,
+            hero_subtitle: lojaHeroSubtitleInput.value
+          };
+
+          const url = lojaId ? `/lojas/${lojaId}` : '/lojas';
+          const method = lojaId ? 'PUT' : 'POST';
+          const response = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
+            body: JSON.stringify(payload)
+          });
+          const result = await response.json();
+          if (!response.ok) return alert(result.erro || 'Não foi possível salvar a loja');
+
+          lojaForm.reset();
+          document.getElementById('lojaId').value = '';
+          document.querySelector('#page-minhas-lojas button[type="submit"]').innerHTML = '<i class="fas fa-plus"></i> Criar loja';
+          syncStorePreview();
+          lojaCepStatus.textContent = '';
+          lojaCepStatus.className = 'cep-status';
+          state.lojaSelecionadaManual = false;
+          await carregarMinhasLojas();
+          showPage('minhas-lojas');
+          alert(lojaId ? 'Loja atualizada com sucesso' : 'Loja criada com sucesso');
         });
 
         window.addEventListener('resize', () => {
@@ -1221,6 +1281,7 @@
             <p class="muted">WhatsApp: ${loja.whatsapp || '-'}</p>
             <div class="row">
               <button class="btn-secondary" onclick="window.selecionarLoja('${loja.id}')"><i class="fas fa-eye"></i> Abrir vitrine</button>
+              <button class="btn-secondary" onclick="window.editarLoja('${loja.id}')"><i class="fas fa-edit"></i> Editar loja</button>
               <button class="btn-secondary" onclick="window.compartilharVitrine('${loja.id}')"><i class="fas fa-share-nodes"></i> Compartilhar</button>
             </div>
           </div>
@@ -1263,6 +1324,7 @@
           await carregarProdutosGerenciados(lojaId);
         }
 
+        const primeiraFoto = Array.isArray(produtos) && produtos[0]?.produto_fotos?.length ? produtos[0].produto_fotos[0].url : null;
         const heroHtml = loja ? `
           <div class="store-hero-card" style="background: linear-gradient(135deg, ${loja.primary_color || '#2563eb'}, ${loja.secondary_color || '#0f766e'});">
             <div class="hero-copy">
@@ -1283,27 +1345,31 @@
           return;
         }
 
-        vitrineArea.innerHTML = `${heroHtml}${state.produtosVitrine.map((produto) => `
-          <div id="produto-${produto.id}" class="product-card" style="margin-bottom:12px;">
-            <div class="pill"><i class="fas fa-tag"></i> R$ ${Number(produto.preco).toFixed(2)}</div>
-            <h3 style="margin-top:10px;">${produto.nome}</h3>
-            <p class="muted">${produto.descricao || 'Sem descrição'}</p>
-            <p class="muted">${produto.disponivel ? 'Disponível' : 'Indisponível'}</p>
-            <div class="row">
-              ${souDono ? `
-                <button class="btn-secondary" onclick="window.editarProdutoPorId('${produto.id}')"><i class="fas fa-edit"></i> Editar</button>
-                <button class="btn-danger" onclick="window.excluirProduto('${produto.id}', '${lojaId}')"><i class="fas fa-trash"></i> Excluir</button>
-                <button class="btn-secondary" onclick="window.compartilharProduto('${produto.id}', '${lojaId}')"><i class="fas fa-share-alt"></i> Compartilhar</button>
-              ` : `
-                <div class="qty-row">
-                  <input type="number" class="qty-input" id="qty-${produto.id}" value="1" min="1" step="1" aria-label="Quantidade" />
-                  <button class="btn-primary" onclick="window.adicionarCarrinho('${produto.id}', '${lojaId}', '${produto.preco}')"><i class="fas fa-cart-plus"></i> Adicionar</button>
-                </div>
-                <button class="btn-secondary" onclick="window.compartilharProduto('${produto.id}', '${lojaId}')"><i class="fas fa-share-alt"></i> Compartilhar</button>
-              `}
+        vitrineArea.innerHTML = `${heroHtml}${state.produtosVitrine.map((produto) => {
+          const imagem = produto.produto_fotos?.length ? produto.produto_fotos[0].url : null;
+          return `
+            <div id="produto-${produto.id}" class="product-card" style="margin-bottom:12px;">
+              ${imagem ? `<img src="${imagem}" alt="${produto.nome}" />` : ''}
+              <div class="pill"><i class="fas fa-tag"></i> R$ ${Number(produto.preco).toFixed(2)}</div>
+              <h3 style="margin-top:10px;">${produto.nome}</h3>
+              <p class="muted">${produto.descricao || 'Sem descrição'}</p>
+              <p class="muted">${produto.disponivel ? 'Disponível' : 'Indisponível'}</p>
+              <div class="row">
+                ${souDono ? `
+                  <button class="btn-secondary" onclick="window.editarProdutoPorId('${produto.id}')"><i class="fas fa-edit"></i> Editar</button>
+                  <button class="btn-danger" onclick="window.excluirProduto('${produto.id}', '${lojaId}')"><i class="fas fa-trash"></i> Excluir</button>
+                  <button class="btn-secondary" onclick="window.compartilharProduto('${produto.id}', '${lojaId}')"><i class="fas fa-share-alt"></i> Compartilhar</button>
+                ` : `
+                  <div class="qty-row">
+                    <input type="number" class="qty-input" id="qty-${produto.id}" value="1" min="1" step="1" aria-label="Quantidade" />
+                    <button class="btn-primary" onclick="window.adicionarCarrinho('${produto.id}', '${lojaId}', '${produto.preco}')"><i class="fas fa-cart-plus"></i> Adicionar</button>
+                  </div>
+                  <button class="btn-secondary" onclick="window.compartilharProduto('${produto.id}', '${lojaId}')"><i class="fas fa-share-alt"></i> Compartilhar</button>
+                `}
+              </div>
             </div>
-          </div>
-        `).join('')}`;
+          `;
+        }).join('')}`;
 
         const params = new URLSearchParams(window.location.search);
         const produtoId = params.get('produto');
@@ -1438,6 +1504,8 @@
         document.querySelectorAll('.page-section').forEach((section) => section.classList.remove('active'));
         document.getElementById(`page-${page}`)?.classList.add('active');
         document.querySelectorAll('.nav-item').forEach((item) => item.classList.toggle('active', item.getAttribute('data-page') === page));
+        document.getElementById('appSidebar').classList.remove('open');
+        document.getElementById('sidebarOverlay').classList.remove('active');
         const titles = {
           home: { title: 'Início', subtitle: 'Conecte clientes, cadastre produtos e converta pedidos em WhatsApp.' },
           lojas: { title: 'Lojas próximas', subtitle: 'Busque por nome, produto ou veja negócios perto de você.' },
@@ -1476,10 +1544,11 @@
         sidebarClinic.textContent = state.minhasLojas.length ? 'Loja ativa' : 'Ainda sem loja';
         perfilArea.innerHTML = `
           <div class="store-card">
-            <h3>${state.usuario.email}</h3>
+            <h3>${state.usuario.user_metadata?.full_name || state.usuario.email}</h3>
             <p class="muted">Você começa como cliente, podendo explorar lojas e vitrines. Quando quiser, pode transformar seu perfil em loja e abrir uma vitrine própria.</p>
             <div class="row">
-              <button class="btn-primary" onclick="window.abrirUpgradeLoja()"><i class="fas fa-store"></i> Quero ter uma loja</button>
+              <button class="btn-primary" onclick="window.editarPerfil()"><i class="fas fa-user-edit"></i> Editar perfil</button>
+              <button class="btn-secondary" onclick="window.abrirUpgradeLoja()"><i class="fas fa-store"></i> Quero ter uma loja</button>
               <button class="btn-secondary" onclick="window.logout()"><i class="fas fa-sign-out-alt"></i> Sair</button>
             </div>
           </div>
@@ -1533,28 +1602,17 @@
         await compartilharUrl(shareUrl.toString(), 'produto', produto?.nome);
       };
       window.abrirUpgradeLoja = () => {
-        const nome = prompt('Nome da sua loja');
-        const whatsapp = prompt('WhatsApp da loja (somente números)');
-        const descricao = prompt('Descrição da loja');
-        const tipoDocumento = prompt('Digite CPF ou CNPJ', 'cpf');
-        const documento = prompt('CPF ou CNPJ da loja');
-        const cep = prompt('CEP da loja (somente números, 8 dígitos)');
-        const numero = prompt('Número do endereço (opcional)');
-        if (!nome || !whatsapp || !documento || !tipoDocumento || !cep) {
-          alert('Preencha nome, WhatsApp, tipo de documento, CPF/CNPJ e CEP para abrir sua loja.');
-          return;
-        }
-        fetch('/lojas', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
-          body: JSON.stringify({ nome, descricao, whatsapp, cep, numero, documento, tipo_documento: tipoDocumento.toLowerCase() })
-        }).then(async (response) => {
-          const result = await response.json();
-          if (!response.ok) throw new Error(result.erro || 'Erro ao criar loja');
-          alert('Loja criada com sucesso!');
-          state.lojaSelecionadaManual = false;
-          return carregarMinhasLojas();
-        }).catch((err) => alert(err.message));
+        showPage('minhas-lojas');
+        document.getElementById('lojaNome').focus();
+      };
+      window.editarPerfil = async () => {
+        const nome = prompt('Digite seu nome completo', state.usuario.user_metadata?.full_name || '');
+        if (nome === null) return;
+        const { data, error } = await state.supabase.auth.updateUser({ data: { full_name: nome } });
+        if (error) return alert(error.message || 'Não foi possível atualizar o perfil.');
+        state.usuario = data.user || state.usuario;
+        render();
+        alert('Perfil atualizado com sucesso');
       };
       window.selecionarLoja = async (lojaId) => {
         state.lojaSelecionada = lojaId;
@@ -1563,6 +1621,30 @@
         await carregarVitrine(lojaId);
         await carregarCarrinho();
       };
+      window.editarLoja = async (lojaId) => {
+        const loja = state.minhasLojas.find((l) => l.id === lojaId);
+        if (!loja) return alert('Loja não encontrada.');
+
+        document.getElementById('lojaId').value = loja.id;
+        document.getElementById('lojaNome').value = loja.nome || '';
+        document.getElementById('lojaDescricao').value = loja.descricao || '';
+        document.getElementById('lojaWhatsapp').value = loja.whatsapp || '';
+        document.getElementById('lojaTipoDocumento').value = loja.tipo_documento || 'cpf';
+        document.getElementById('lojaDocumento').value = loja.documento || '';
+        document.getElementById('lojaCep').value = loja.cep ? loja.cep.replace(/(\d{5})(\d{3})/, '$1-$2') : '';
+        document.getElementById('lojaNumero').value = loja.numero || '';
+        lojaLogoUrlInput.value = loja.logo_url || '';
+        lojaCoverUrlInput.value = loja.cover_url || '';
+        lojaPrimaryColorInput.value = loja.primary_color || '#2563eb';
+        lojaSecondaryColorInput.value = loja.secondary_color || '#0f766e';
+        lojaAccentColorInput.value = loja.accent_color || '#f59e0b';
+        lojaHeroTitleInput.value = loja.hero_title || 'Nossa vitrine especial';
+        lojaHeroSubtitleInput.value = loja.hero_subtitle || 'Promoções, novidades e atendimento rápido';
+        document.querySelector('#page-minhas-lojas button[type="submit"]').innerHTML = '<i class="fas fa-save"></i> Salvar loja';
+        syncStorePreview();
+        showPage('minhas-lojas');
+      };
+
       window.adicionarCarrinho = async (produtoId, lojaId, preco) => {
         if (!state.usuario || !state.token) return alert('Faça login para adicionar produtos ao carrinho.');
         const qtyInput = document.getElementById(`qty-${produtoId}`);
