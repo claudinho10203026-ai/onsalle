@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vitrine Local</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      :root {
+        --sb-bg: #f8fafc;
+        --sb-surface: #ffffff;
+        --sb-elevated: #f1f5f9;
+        --sb-border: #e2e8f0;
+        --sb-text: #1e293b;
+        --sb-text-secondary: #334155;
+        --sb-text-muted: #64748b;
+        --sb-accent: #2563eb;
+        --sb-accent-dim: #eff6ff;
+        --sb-accent-hover: #dbeafe;
+        --sb-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+        --sb-radius: 12px;
+        --sb-font: 'Inter', system-ui, -apple-system, sans-serif;
+        --sb-sidebar-width: 280px;
+        --sb-sidebar-collapsed: 72px;
+        --sb-transition: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      [data-theme="dark"] {
+        --sb-bg: #0b1120;
+        --sb-surface: #111c2e;
+        --sb-elevated: #1e2d45;
+        --sb-border: rgba(255, 255, 255, 0.06);
+        --sb-text: #f0f4ff;
+        --sb-text-secondary: #b0c4e8;
+        --sb-text-muted: #7a8aa8;
+        --sb-accent: #3b82f6;
+        --sb-accent-dim: rgba(59, 130, 246, 0.15);
+        --sb-accent-hover: rgba(59, 130, 246, 0.25);
+        --sb-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+      }
+
+      body {
+        font-family: var(--sb-font);
+        background: var(--sb-bg);
+        color: var(--sb-text);
+        min-height: 100vh;
+      }
+
+      .sidebar-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+      .sidebar-overlay.active { opacity: 1; }
+
+      .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: var(--sb-sidebar-width);
+        background: var(--sb-surface);
+        border-right: 1px solid var(--sb-border);
+        color: var(--sb-text);
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        transition: width var(--sb-transition), transform var(--sb-transition), background var(--sb-transition);
+        box-shadow: var(--sb-shadow);
+        overflow: hidden;
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
+      }
+      .sidebar.collapsed { width: var(--sb-sidebar-collapsed); }
+      .sidebar.collapsed .sb-brand-title,
+      .sidebar.collapsed .sidebar-user,
+      .sidebar.collapsed .sb-group-btn span:not(.caret),
+      .sidebar.collapsed .nav-item span,
+      .sidebar.collapsed .sidebar-footer .btn-logout span,
+      .sidebar.collapsed .sb-toggle-label { opacity: 0; pointer-events: none; width: 0; overflow: hidden; }
+      .sidebar.collapsed .sb-brand-icon { margin-right: 0; }
+      .sidebar.collapsed .nav-item { justify-content: center; padding: 10px !important; }
+      .sidebar.collapsed .nav-item i { margin-right: 0; }
+      .sidebar.collapsed .sb-group-btn { justify-content: center; padding: 6px 0; }
+      .sidebar.collapsed .sb-group-btn .caret { display: none; }
+      .sidebar.collapsed .sidebar-footer .btn-logout { justify-content: center; padding: 10px !important; }
+      .sidebar.collapsed .sidebar-footer .btn-logout i { margin-right: 0; }
+
+      .sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 14px; border-bottom: 1px solid var(--sb-border); flex-shrink: 0; }
+      .sb-brand { display: flex; align-items: center; gap: 12px; overflow: hidden; }
+      .sb-brand-icon { width: 38px; height: 38px; background: linear-gradient(135deg, var(--sb-accent), #06b6d4); border-radius: var(--sb-radius); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; flex-shrink: 0; }
+      .sb-brand-title { display: flex; flex-direction: column; white-space: nowrap; overflow: hidden; }
+      .sb-brand-title h2 { font-size: 17px; font-weight: 700; color: var(--sb-text); letter-spacing: -0.3px; }
+      .sb-brand-title small { font-size: 10px; color: var(--sb-text-muted); }
+      .sb-toggle-btn { background: none; border: none; color: var(--sb-text-muted); font-size: 18px; cursor: pointer; padding: 6px 8px; border-radius: 8px; transition: background 0.2s; }
+      .sb-toggle-btn:hover { background: var(--sb-elevated); color: var(--sb-text); }
+
+      .sidebar-user { margin: 12px 16px 8px; padding: 14px 16px; background: var(--sb-elevated); border-radius: var(--sb-radius); border: 1px solid var(--sb-border); }
+      .sidebar-user .name { font-size: 14px; font-weight: 600; color: var(--sb-text); }
+      .sidebar-user .role { font-size: 11px; color: var(--sb-text-muted); margin-top: 2px; }
+      .sidebar-user .clinic { font-size: 11px; color: var(--sb-accent); margin-top: 4px; display: flex; align-items: center; gap: 6px; }
+
+      .sidebar-nav { flex: 1; padding: 8px 12px 8px; overflow-y: auto; }
+      .sb-group { margin-top: 4px; }
+      .sb-group + .sb-group { margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--sb-border); }
+      .sb-group-btn { width: 100%; display: flex; align-items: center; justify-content: space-between; background: transparent; border: 0; color: var(--sb-text-muted); font-size: 9px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; padding: 6px 10px; cursor: pointer; border-radius: 6px; }
+      .sb-group-btn:hover { color: var(--sb-accent); background: var(--sb-accent-dim); }
+      .sb-group-btn .caret { transition: transform 0.35s; font-size: 9px; }
+      .sb-group.open .sb-group-btn .caret { transform: rotate(90deg); color: var(--sb-accent); }
+      .sb-group-list { display: flex; flex-direction: column; gap: 2px; overflow: hidden; max-height: 0; opacity: 0; transform: translateY(-6px); transition: max-height 0.4s, opacity 0.3s, transform 0.3s; pointer-events: none; }
+      .sb-group.open .sb-group-list { max-height: 600px; opacity: 1; transform: translateY(0); pointer-events: auto; }
+      .nav-item { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--sb-text-secondary); text-decoration: none; transition: background 0.2s, color 0.2s; position: relative; width: 100%; text-align: left; }
+      .nav-item i { width: 20px; font-size: 15px; color: var(--sb-text-muted); flex-shrink: 0; }
+      .nav-item:hover { background: var(--sb-accent-dim); color: var(--sb-text); }
+      .nav-item:hover i { color: var(--sb-accent); }
+      .nav-item.active { background: var(--sb-accent-dim); color: var(--sb-text); font-weight: 600; box-shadow: inset 3px 0 0 var(--sb-accent); }
+      .nav-item.active i { color: var(--sb-accent); }
+      .nav-item[hidden] { display: none !important; }
+
+      .sidebar-footer { padding: 12px 16px 16px; border-top: 1px solid var(--sb-border); display: flex; flex-direction: column; gap: 8px; }
+      .theme-toggle { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; border-radius: 8px; background: var(--sb-elevated); border: 1px solid var(--sb-border); }
+      .theme-toggle .sb-toggle-label { font-size: 12px; font-weight: 500; color: var(--sb-text-muted); }
+      .theme-toggle .toggle-switch { position: relative; width: 40px; height: 22px; background: var(--sb-border); border-radius: 12px; cursor: pointer; }
+      .theme-toggle .toggle-switch .slider { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background: #fff; border-radius: 50%; transition: transform 0.3s; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+      [data-theme="dark"] .theme-toggle .toggle-switch { background: var(--sb-accent); }
+      [data-theme="dark"] .theme-toggle .toggle-switch .slider { transform: translateX(18px); }
+      .btn-logout { display: flex; align-items: center; gap: 10px; padding: 10px 14px; width: 100%; border: none; border-radius: 8px; background: rgba(239,68,68,0.08); color: #ef4444; font-size: 13px; font-weight: 500; cursor: pointer; }
+
+      .main-content { margin-left: var(--sb-sidebar-width); padding: 24px 28px 40px; transition: margin-left var(--sb-transition); }
+      .sidebar.collapsed + .main-content { margin-left: var(--sb-sidebar-collapsed); }
+      .page-section { display: none; }
+      .page-section.active { display: block; }
+      .content-topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+      .content-topbar .title { font-size: 24px; font-weight: 700; }
+      .content-topbar .subtitle { color: var(--sb-text-muted); font-size: 14px; margin-top: 4px; }
+      .hero, .card { background: var(--sb-surface); border: 1px solid var(--sb-border); border-radius: 18px; padding: 20px; box-shadow: var(--sb-shadow); }
+      .hero { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 18px; background: linear-gradient(135deg, var(--sb-accent-dim), transparent); }
+      .banner { display: none; margin-bottom: 16px; padding: 12px 14px; border-radius: 12px; border: 1px solid #fbbf24; background: rgba(251,191,36,0.16); color: var(--sb-text); }
+      .banner.active { display: block; }
+      .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 12px; }
+      .stat-card { background: var(--sb-elevated); border: 1px solid var(--sb-border); border-radius: 14px; padding: 14px; }
+      .stat-card strong { font-size: 22px; display: block; margin-bottom: 4px; }
+      .tag { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: var(--sb-accent-dim); color: var(--sb-accent); font-size: 12px; font-weight: 600; }
+      .hero h1 { font-size: 28px; margin-bottom: 8px; }
+      .hero p { color: var(--sb-text-muted); max-width: 620px; }
+      .btn-primary { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 10px; border: none; background: var(--sb-accent); color: white; cursor: pointer; }
+      .btn-secondary { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--sb-border); background: var(--sb-surface); color: var(--sb-text); cursor: pointer; }
+      .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+      .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: var(--sb-accent-dim); color: var(--sb-accent); font-size: 12px; font-weight: 600; }
+      .store-card, .product-card { background: var(--sb-surface); border: 1px solid var(--sb-border); border-radius: 16px; padding: 16px; box-shadow: var(--sb-shadow); }
+      .store-card img, .product-card img { width: 100%; height: 160px; object-fit: cover; border-radius: 12px; margin-bottom: 12px; background: var(--sb-elevated); }
+      .muted { color: var(--sb-text-muted); font-size: 13px; }
+      .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+      .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+      .field label { font-size: 13px; font-weight: 600; color: var(--sb-text-secondary); }
+      input, textarea, select { width: 100%; border: 1px solid var(--sb-border); background: var(--sb-surface); color: var(--sb-text); padding: 10px 12px; border-radius: 10px; }
+      textarea { resize: vertical; min-height: 90px; }
+      ul { padding-left: 18px; }
+      .empty { color: var(--sb-text-muted); padding: 20px 0; }
+      .mobile-only { display: none; }
+      @media (max-width: 992px) {
+        .sidebar { transform: translateX(-100%); width: var(--sb-sidebar-width); }
+        .sidebar.open { transform: translateX(0); }
+        .sidebar-overlay { display: block; }
+        .main-content { margin-left: 0; padding: 16px 16px 30px; }
+        .sidebar.collapsed + .main-content { margin-left: 0; }
+        .mobile-only { display: inline-flex; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    <aside class="sidebar" id="appSidebar">
+      <div class="sidebar-header">
+        <div class="sb-brand">
+          <div class="sb-brand-icon"><i class="fas fa-store"></i></div>
+          <div class="sb-brand-title">
+            <h2>Vitrine Local</h2>
+            <small>Venda, entregue e cresça</small>
+          </div>
+        </div>
+        <button class="sb-toggle-btn" id="sidebarToggleBtn" aria-label="Abrir menu"><i class="fas fa-bars"></i></button>
+      </div>
+
+      <div class="sidebar-user">
+        <div class="name" id="sidebarName">Bem-vindo</div>
+        <div class="role" id="sidebarRole">Cliente &amp; vendedor</div>
+        <div class="clinic"><i class="fas fa-map-marker-alt"></i> <span id="sidebarClinic">Lojas próximas</span></div>
+      </div>
+
+      <nav class="sidebar-nav" id="sidebarNav">
+        <div class="sb-group open" data-group="principal">
+          <button class="sb-group-btn" type="button"><span>Principal</span><span class="caret">▶</span></button>
+          <div class="sb-group-list">
+            <a class="nav-item active" href="#home" data-page="home"><i class="fas fa-home"></i><span>Início</span></a>
+            <a class="nav-item" href="#lojas" data-page="lojas"><i class="fas fa-map-marked-alt"></i><span>Lojas próximas</span></a>
+            <a class="nav-item" href="#vitrine" data-page="vitrine"><i class="fas fa-store"></i><span>Vitrine</span></a>
+          </div>
+        </div>
+
+        <div class="sb-group open" data-group="vendedor" id="vendedorGroup" hidden>
+          <button class="sb-group-btn" type="button"><span>Vendedor</span><span class="caret">▶</span></button>
+          <div class="sb-group-list">
+            <a class="nav-item" href="#minhas-lojas" data-page="minhas-lojas"><i class="fas fa-shop"></i><span>Minhas lojas</span></a>
+            <a class="nav-item" href="#cadastrar-produto" data-page="cadastrar-produto"><i class="fas fa-box-open"></i><span>Cadastrar produto</span></a>
+          </div>
+        </div>
+
+        <div class="sb-group open" data-group="compras">
+          <button class="sb-group-btn" type="button"><span>Compras</span><span class="caret">▶</span></button>
+          <div class="sb-group-list">
+            <a class="nav-item" href="#carrinho" data-page="carrinho"><i class="fas fa-shopping-cart"></i><span>Carrinho</span></a>
+            <a class="nav-item" href="#pedidos" data-page="pedidos"><i class="fas fa-receipt"></i><span>Pedidos</span></a>
+          </div>
+        </div>
+
+        <div class="sb-group open" data-group="conta">
+          <button class="sb-group-btn" type="button"><span>Conta</span><span class="caret">▶</span></button>
+          <div class="sb-group-list">
+            <a class="nav-item" href="#perfil" data-page="perfil"><i class="fas fa-user-circle"></i><span>Perfil</span></a>
+          </div>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="theme-toggle">
+          <span class="sb-toggle-label"><i class="fas fa-moon"></i> Tema</span>
+          <div class="toggle-switch" id="themeToggle" role="button" tabindex="0" aria-label="Alternar tema">
+            <div class="slider"></div>
+          </div>
+        </div>
+        <button class="btn-logout" id="logoutBtn"><i class="fas fa-sign-out-alt"></i><span>Sair</span></button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="content-topbar">
+        <div>
+          <div class="title" id="pageTitle">Início</div>
+          <div class="subtitle" id="pageSubtitle">Conecte clientes, cadastre produtos e converta pedidos em WhatsApp.</div>
+        </div>
+        <button class="btn-secondary mobile-only" id="mobileMenuBtn"><i class="fas fa-bars"></i> Menu</button>
+      </div>
+
+      <div class="banner" id="statusBanner"></div>
+
+      <section class="page-section active" id="page-home">
+        <div class="hero">
+          <div>
+            <h1>Seu negócio em uma vitrine moderna</h1>
+            <p>Clientes encontram lojas perto deles, veem produtos com fotos, escolhem itens no carrinho e finalizam tudo em WhatsApp com uma mensagem pronta.</p>
+          </div>
+          <button class="btn-primary" id="btnHomeToVitrine"><i class="fas fa-arrow-right"></i> Ver vitrine</button>
+        </div>
+        <div id="dashboardArea" class="stat-grid"></div>
+        <div class="grid" style="margin-top: 16px;">
+          <div class="card">
+            <h3><i class="fas fa-map-location-dot"></i> Lojas próximas</h3>
+            <p class="muted" style="margin-top:8px;">Mostre lojas perto do cliente e facilite a descoberta do seu catálogo.</p>
+          </div>
+          <div class="card">
+            <h3><i class="fas fa-boxes-stacked"></i> Gestão de estoque</h3>
+            <p class="muted" style="margin-top:8px;">Você controla preço, descrição e quantidade, mas o cliente só vê disponibilidade.</p>
+          </div>
+          <div class="card">
+            <h3><i class="fas fa-comment-dots"></i> WhatsApp direto</h3>
+            <p class="muted" style="margin-top:8px;">No fechamento, o pedido já vem formatado para o dono da loja responder rapidamente.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="page-section" id="page-lojas">
+        <div class="card">
+          <h2><i class="fas fa-map-marked-alt"></i> Lojas próximas</h2>
+          <p class="muted" style="margin-top:8px;">Permita acesso à localização para listar estabelecimentos perto de você.</p>
+          <div id="lojasArea" style="margin-top:16px;"></div>
+        </div>
+      </section>
+
+      <section class="page-section" id="page-vitrine">
+        <div class="card">
+          <h2><i class="fas fa-store"></i> Vitrine da loja</h2>
+          <p class="muted" style="margin-top:8px;">Escolha uma loja para visualizar os produtos e adicionar itens ao carrinho.</p>
+          <div id="vitrineArea" style="margin-top:16px;"></div>
+        </div>
+      </section>
+
+      <section class="page-section" id="page-minhas-lojas">
+        <div class="grid">
+          <div class="card">
+            <h2><i class="fas fa-shop"></i> Criar minha loja</h2>
+            <form id="lojaForm">
+              <div class="field">
+                <label>Nome da loja</label>
+                <input type="text" id="lojaNome" required />
+              </div>
+              <div class="field">
+                <label>Descrição</label>
+                <textarea id="lojaDescricao"></textarea>
+              </div>
+              <div class="field">
+                <label>WhatsApp</label>
+                <input type="text" id="lojaWhatsapp" placeholder="5511999999999" required />
+              </div>
+              <div class="field">
+                <label>Tipo de documento</label>
+                <select id="lojaTipoDocumento">
+                  <option value="cpf">CPF</option>
+                  <option value="cnpj">CNPJ</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>CPF/CNPJ</label>
+                <input type="text" id="lojaDocumento" placeholder="00000000000 ou 00000000000000" required />
+              </div>
+              <div class="field">
+                <label>Endereço</label>
+                <input type="text" id="lojaEndereco" />
+              </div>
+              <button class="btn-primary" type="submit"><i class="fas fa-plus"></i> Criar loja</button>
+            </form>
+          </div>
+          <div class="card">
+            <h2><i class="fas fa-list"></i> Minhas lojas</h2>
+            <div id="minhasLojasArea" class="empty">Faça login para visualizar suas lojas.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page-section" id="page-cadastrar-produto">
+        <div class="card">
+          <h2><i class="fas fa-box-open"></i> Cadastrar produto</h2>
+          <form id="produtoForm">
+            <div class="field">
+              <label>Loja</label>
+              <select id="produtoLojaId" required></select>
+            </div>
+            <div class="field">
+              <label>Nome</label>
+              <input type="text" id="produtoNome" required />
+            </div>
+            <div class="field">
+              <label>Descrição</label>
+              <textarea id="produtoDescricao"></textarea>
+            </div>
+            <div class="field">
+              <label>Preço</label>
+              <input type="number" id="produtoPreco" min="0" step="0.01" required />
+            </div>
+            <div class="field">
+              <label>Quantidade em estoque</label>
+              <input type="number" id="produtoQuantidade" min="0" value="0" required />
+            </div>
+            <div class="field">
+              <label>Fotos (URLs, separadas por vírgula)</label>
+              <textarea id="produtoFotos" placeholder="https://...jpg, https://...png"></textarea>
+            </div>
+            <button class="btn-primary" type="submit"><i class="fas fa-save"></i> Salvar produto</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="page-section" id="page-carrinho">
+        <div class="card">
+          <h2><i class="fas fa-shopping-cart"></i> Carrinho</h2>
+          <div id="carrinhoArea" class="empty">Seu carrinho aparecerá aqui.</div>
+        </div>
+      </section>
+
+      <section class="page-section" id="page-pedidos">
+        <div class="card">
+          <h2><i class="fas fa-receipt"></i> Pedidos</h2>
+          <div id="pedidosArea" class="empty">Nenhum pedido ainda.</div>
+        </div>
+      </section>
+
+      <section class="page-section" id="page-perfil">
+        <div class="card">
+          <h2><i class="fas fa-user-circle"></i> Perfil</h2>
+          <p class="muted" style="margin-top:8px;">Comece como cliente, e quando quiser, transforme seu perfil em loja com CNPJ ou CPF.</p>
+          <div id="perfilArea" class="empty">Faça login para ver seus dados.</div>
+        </div>
+      </section>
+    </main>
+
+    <script type="module">
+      import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+      const state = {
+        usuario: null,
+        lojaSelecionada: null,
+        carrinhoId: null,
+        lojas: [],
+        minhasLojas: [],
+        supabase: null,
+        token: null
+      };
+
+      const pageTitle = document.getElementById('pageTitle');
+      const pageSubtitle = document.getElementById('pageSubtitle');
+      const sidebarName = document.getElementById('sidebarName');
+      const sidebarRole = document.getElementById('sidebarRole');
+      const sidebarClinic = document.getElementById('sidebarClinic');
+      const dashboardArea = document.getElementById('dashboardArea');
+      const lojasArea = document.getElementById('lojasArea');
+      const vitrineArea = document.getElementById('vitrineArea');
+      const carrinhoArea = document.getElementById('carrinhoArea');
+      const minhasLojasArea = document.getElementById('minhasLojasArea');
+      const pedidosArea = document.getElementById('pedidosArea');
+      const perfilArea = document.getElementById('perfilArea');
+      const produtoLojaId = document.getElementById('produtoLojaId');
+      const lojaForm = document.getElementById('lojaForm');
+      const produtoForm = document.getElementById('produtoForm');
+
+      async function init() {
+        const config = await fetch('/config').then((r) => r.json());
+        const hasSupabase = Boolean(config.supabaseUrl && config.supabaseAnonKey);
+        const banner = document.getElementById('statusBanner');
+
+        if (!hasSupabase) {
+          banner.classList.add('active');
+          banner.innerHTML = '<strong>Configuração pendente:</strong> defina as chaves do Supabase no arquivo .env para ativar login, lojas e pedidos.';
+        } else {
+          state.supabase = createClient(config.supabaseUrl, config.supabaseAnonKey);
+        }
+
+        bindEvents();
+        await carregarUsuario();
+        await carregarLojasProximas();
+        await carregarMinhasLojas();
+        await carregarPedidos();
+      }
+
+      function bindEvents() {
+        document.querySelectorAll('.nav-item').forEach((item) => {
+          item.addEventListener('click', (event) => {
+            event.preventDefault();
+            const page = item.getAttribute('data-page');
+            showPage(page);
+          });
+        });
+
+        document.querySelectorAll('.sb-group-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const group = btn.closest('.sb-group');
+            if (group) group.classList.toggle('open');
+          });
+        });
+
+        document.getElementById('themeToggle').addEventListener('click', () => {
+          const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+          const next = isDark ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          localStorage.setItem('theme', next);
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+          await state.supabase.auth.signOut();
+          state.usuario = null;
+          state.token = null;
+          render();
+        });
+
+        document.getElementById('mobileMenuBtn').addEventListener('click', () => {
+          document.getElementById('appSidebar').classList.toggle('open');
+          document.getElementById('sidebarOverlay').classList.toggle('active');
+        });
+
+        document.getElementById('sidebarOverlay').addEventListener('click', () => {
+          document.getElementById('appSidebar').classList.remove('open');
+          document.getElementById('sidebarOverlay').classList.remove('active');
+        });
+
+        document.getElementById('sidebarToggleBtn').addEventListener('click', () => {
+          const sidebar = document.getElementById('appSidebar');
+          if (window.innerWidth <= 992) {
+            sidebar.classList.toggle('open');
+            document.getElementById('sidebarOverlay').classList.toggle('active');
+          } else {
+            sidebar.classList.toggle('collapsed');
+          }
+        });
+
+        document.getElementById('btnHomeToVitrine').addEventListener('click', () => showPage('vitrine'));
+
+        lojaForm.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          if (!state.usuario) return alert('Faça login para criar uma loja.');
+          const payload = {
+            nome: document.getElementById('lojaNome').value,
+            descricao: document.getElementById('lojaDescricao').value,
+            whatsapp: document.getElementById('lojaWhatsapp').value,
+            documento: document.getElementById('lojaDocumento').value,
+            tipo_documento: document.getElementById('lojaTipoDocumento').value,
+            endereco: document.getElementById('lojaEndereco').value,
+            latitude: null,
+            longitude: null
+          };
+          const response = await fetch('/lojas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
+            body: JSON.stringify(payload)
+          });
+          const result = await response.json();
+          if (!response.ok) return alert(result.erro || 'Não foi possível criar a loja');
+          lojaForm.reset();
+          await carregarMinhasLojas();
+          showPage('minhas-lojas');
+        });
+
+        produtoForm.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const fotos = document.getElementById('produtoFotos').value.split(',').map((item) => item.trim()).filter(Boolean);
+          const payload = {
+            loja_id: document.getElementById('produtoLojaId').value,
+            nome: document.getElementById('produtoNome').value,
+            descricao: document.getElementById('produtoDescricao').value,
+            preco: Number(document.getElementById('produtoPreco').value),
+            quantidade_estoque: Number(document.getElementById('produtoQuantidade').value),
+            fotos
+          };
+          const response = await fetch('/produtos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
+            body: JSON.stringify(payload)
+          });
+          const result = await response.json();
+          if (!response.ok) return alert(result.erro || 'Não foi possível salvar o produto');
+          produtoForm.reset();
+          alert('Produto cadastrado com sucesso');
+        });
+
+        window.addEventListener('resize', () => {
+          if (window.innerWidth > 992) {
+            document.getElementById('appSidebar').classList.remove('open');
+            document.getElementById('sidebarOverlay').classList.remove('active');
+          }
+        });
+
+        document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'light');
+      }
+
+      async function carregarUsuario() {
+        if (!state.supabase) {
+          state.usuario = null;
+          state.token = null;
+          render();
+          return;
+        }
+
+        const { data: { session } } = await state.supabase.auth.getSession();
+        state.usuario = session?.user || null;
+        state.token = session?.access_token || null;
+        render();
+      }
+
+      async function loginGoogle() {
+        if (!state.supabase) {
+          alert('Configure o Supabase no arquivo .env para habilitar o login com Google.');
+          return;
+        }
+
+        await state.supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
+      }
+
+      async function logout() {
+        if (state.supabase) {
+          await state.supabase.auth.signOut();
+        }
+        state.usuario = null;
+        state.token = null;
+        render();
+      }
+
+      async function carregarDashboard() {
+        const totalLojas = state.minhasLojas.length || 0;
+        const totalProdutos = state.minhasLojas.length ? '—' : 0;
+        dashboardArea.innerHTML = `
+          <div class="stat-card">
+            <strong>${state.minhasLojas.length || 0}</strong>
+            <span class="muted">Lojas cadastradas</span>
+          </div>
+          <div class="stat-card">
+            <strong>${state.lojas.length || 0}</strong>
+            <span class="muted">Lojas próximas</span>
+          </div>
+          <div class="stat-card">
+            <strong>0</strong>
+            <span class="muted">Produtos mais pesquisados</span>
+          </div>
+          <div class="stat-card">
+            <strong>${state.minhasLojas.length ? 'Ativa' : 'Cliente'}</strong>
+            <span class="muted">Status atual</span>
+          </div>
+        `;
+      }
+
+      async function carregarLojasProximas() {
+        if (!navigator.geolocation) {
+          lojasArea.innerHTML = '<div class="empty">Geolocalização não suportada pelo navegador.</div>';
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+          const { latitude, longitude } = pos.coords;
+          const response = await fetch(`/lojas/proximas?lat=${latitude}&lng=${longitude}&raio_km=15`);
+          const lojas = await response.json();
+          state.lojas = Array.isArray(lojas) ? lojas : [];
+          if (!state.lojas.length) {
+            lojasArea.innerHTML = '<div class="empty">Nenhuma loja próxima foi encontrada.</div>';
+            return;
+          }
+          lojasArea.innerHTML = state.lojas.map((loja) => `
+            <div class="store-card" style="margin-bottom:12px;">
+              <h3>${loja.nome}</h3>
+              <p class="muted">${loja.endereco || 'Endereço não informado'}</p>
+              <p class="pill" style="margin-top:8px;"><i class="fas fa-location-dot"></i> ${Number(loja.distancia_km || 0).toFixed(1)} km</p>
+              <div class="row">
+                <button class="btn-primary" onclick="window.selecionarLoja('${loja.id}')"><i class="fas fa-eye"></i> Abrir vitrine</button>
+              </div>
+            </div>
+          `).join('');
+        }, () => {
+          lojasArea.innerHTML = '<div class="empty">Permita a localização para ver lojas próximas.</div>';
+        });
+      }
+
+      async function carregarMinhasLojas() {
+        if (!state.usuario || !state.token) {
+          minhasLojasArea.innerHTML = '<div class="empty">Faça login para visualizar suas lojas.</div>';
+          produtoLojaId.innerHTML = '<option value="">Primeiro crie uma loja</option>';
+          return;
+        }
+        const response = await fetch('/lojas/minhas', { headers: { Authorization: `Bearer ${state.token}` } });
+        const lojas = await response.json();
+        state.minhasLojas = Array.isArray(lojas) ? lojas : [];
+        if (!state.minhasLojas.length) {
+          minhasLojasArea.innerHTML = '<div class="empty">Você ainda não possui lojas cadastradas.</div>';
+          produtoLojaId.innerHTML = '<option value="">Crie uma loja para cadastrar produtos</option>';
+          return;
+        }
+        produtoLojaId.innerHTML = state.minhasLojas.map((loja) => `<option value="${loja.id}">${loja.nome}</option>`).join('');
+        minhasLojasArea.innerHTML = state.minhasLojas.map((loja) => `
+          <div class="store-card" style="margin-bottom:12px;">
+            <h3>${loja.nome}</h3>
+            <p class="muted">${loja.descricao || 'Sem descrição'}</p>
+            <p class="muted">WhatsApp: ${loja.whatsapp || '-'}</p>
+            <div class="row">
+              <button class="btn-secondary" onclick="window.selecionarLoja('${loja.id}')"><i class="fas fa-eye"></i> Abrir vitrine</button>
+            </div>
+          </div>
+        `).join('');
+        await carregarDashboard();
+      }
+
+      async function carregarVitrine(lojaId) {
+        const response = await fetch(`/produtos/loja/${lojaId}/vitrine`);
+        const produtos = await response.json();
+        if (!produtos.length) {
+          vitrineArea.innerHTML = '<div class="empty">Essa loja ainda não possui produtos em destaque.</div>';
+          return;
+        }
+        vitrineArea.innerHTML = produtos.map((produto) => `
+          <div class="product-card" style="margin-bottom:12px;">
+            <div class="pill"><i class="fas fa-tag"></i> R$ ${Number(produto.preco).toFixed(2)}</div>
+            <h3 style="margin-top:10px;">${produto.nome}</h3>
+            <p class="muted">${produto.descricao || 'Sem descrição'}</p>
+            <p class="muted">${produto.disponivel ? 'Disponível' : 'Indisponível'}</p>
+            <div class="row">
+              <button class="btn-primary" onclick="window.adicionarCarrinho('${produto.id}', '${lojaId}', '${produto.preco}')"><i class="fas fa-cart-plus"></i> Adicionar</button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      async function carregarCarrinho() {
+        if (!state.usuario || !state.token) {
+          carrinhoArea.innerHTML = '<div class="empty">Faça login para usar o carrinho.</div>';
+          return;
+        }
+        if (!state.lojaSelecionada) {
+          carrinhoArea.innerHTML = '<div class="empty">Escolha uma loja para ver o carrinho.</div>';
+          return;
+        }
+        const response = await fetch(`/carrinho/loja/${state.lojaSelecionada}`, { headers: { Authorization: `Bearer ${state.token}` } });
+        const carrinho = await response.json();
+        state.carrinhoId = carrinho.id;
+        if (!carrinho?.carrinho_itens?.length) {
+          carrinhoArea.innerHTML = '<div class="empty">Seu carrinho está vazio.</div>';
+          return;
+        }
+        const total = carrinho.carrinho_itens.reduce((sum, item) => sum + Number(item.produtos.preco) * item.quantidade, 0);
+        carrinhoArea.innerHTML = `
+          <div class="store-card">
+            <h3>Itens no carrinho</h3>
+            <ul>${carrinho.carrinho_itens.map((item) => `<li>${item.quantidade}x ${item.produtos.nome} — R$ ${(Number(item.produtos.preco) * item.quantidade).toFixed(2)}</li>`).join('')}</ul>
+            <p style="margin-top:12px;"><strong>Total:</strong> R$ ${total.toFixed(2)}</p>
+            <div class="row">
+              <button class="btn-primary" onclick="window.finalizarPedido()"><i class="fas fa-whatsapp"></i> Finalizar por WhatsApp</button>
+            </div>
+          </div>
+        `;
+      }
+
+      async function carregarPedidos() {
+        if (!state.usuario || !state.token) {
+          pedidosArea.innerHTML = '<div class="empty">Faça login para ver pedidos.</div>';
+          return;
+        }
+        const response = await fetch('/pedidos', { headers: { Authorization: `Bearer ${state.token}` } });
+        const pedidos = await response.json();
+        if (!pedidos.length) {
+          pedidosArea.innerHTML = '<div class="empty">Nenhum pedido encontrado.</div>';
+          return;
+        }
+        pedidosArea.innerHTML = pedidos.map((pedido) => `
+          <div class="store-card" style="margin-bottom:12px;">
+            <h3>Pedido #${String(pedido.id).slice(0, 8)}</h3>
+            <p class="muted">Status: ${pedido.status}</p>
+            <p class="muted">Total: R$ ${Number(pedido.total).toFixed(2)}</p>
+          </div>
+        `).join('');
+      }
+
+      function showPage(page) {
+        document.querySelectorAll('.page-section').forEach((section) => section.classList.remove('active'));
+        document.getElementById(`page-${page}`)?.classList.add('active');
+        document.querySelectorAll('.nav-item').forEach((item) => item.classList.toggle('active', item.getAttribute('data-page') === page));
+        const titles = {
+          home: { title: 'Início', subtitle: 'Conecte clientes, cadastre produtos e converta pedidos em WhatsApp.' },
+          lojas: { title: 'Lojas próximas', subtitle: 'Veja negócios perto de você e escolha uma vitrine.' },
+          vitrine: { title: 'Vitrine', subtitle: 'Navegue pelos produtos da loja selecionada.' },
+          'minhas-lojas': { title: 'Minhas lojas', subtitle: 'Crie sua loja e organize seus produtos.' },
+          'cadastrar-produto': { title: 'Cadastrar produto', subtitle: 'Publique itens com foto, preço e estoque.' },
+          carrinho: { title: 'Carrinho', subtitle: 'Revise os produtos escolhidos antes do WhatsApp.' },
+          pedidos: { title: 'Pedidos', subtitle: 'Acompanhe cada pedido realizado.' },
+          perfil: { title: 'Perfil', subtitle: 'Gerencie sua conta e sua presença como vendedor.' }
+        };
+        const meta = titles[page] || titles.home;
+        pageTitle.textContent = meta.title;
+        pageSubtitle.textContent = meta.subtitle;
+      }
+
+      function render() {
+        const vendedorGroup = document.getElementById('vendedorGroup');
+
+        if (!state.usuario) {
+          sidebarName.textContent = 'Bem-vindo';
+          sidebarRole.textContent = 'Cliente';
+          sidebarClinic.textContent = state.supabase ? 'Faça login para entrar' : 'Supabase ainda não conectado';
+          if (vendedorGroup) vendedorGroup.hidden = true;
+          perfilArea.innerHTML = state.supabase
+            ? '<div class="empty"><button class="btn-primary" onclick="window.loginGoogle()"><i class="fas fa-google"></i> Entrar com Google</button></div>'
+            : '<div class="empty">Configure o Supabase no arquivo .env para habilitar login e operações reais.</div>';
+          minhasLojasArea.innerHTML = '<div class="empty">Faça login para visualizar suas lojas.</div>';
+          carrinhoArea.innerHTML = '<div class="empty">Faça login para usar o carrinho.</div>';
+          pedidosArea.innerHTML = '<div class="empty">Faça login para ver seus pedidos.</div>';
+          return;
+        }
+
+        if (vendedorGroup) vendedorGroup.hidden = false;
+        sidebarName.textContent = state.usuario.user_metadata?.full_name || state.usuario.email || 'Usuário';
+        sidebarRole.textContent = state.minhasLojas.length ? 'Vendedor' : 'Cliente';
+        sidebarClinic.textContent = state.minhasLojas.length ? 'Loja ativa' : 'Ainda sem loja';
+        perfilArea.innerHTML = `
+          <div class="store-card">
+            <h3>${state.usuario.email}</h3>
+            <p class="muted">Você começa como cliente, podendo explorar lojas e vitrines. Quando quiser, pode transformar seu perfil em loja e abrir uma vitrine própria.</p>
+            <div class="row">
+              <button class="btn-primary" onclick="window.abrirUpgradeLoja()"><i class="fas fa-store"></i> Quero ter uma loja</button>
+              <button class="btn-secondary" onclick="window.logout()"><i class="fas fa-sign-out-alt"></i> Sair</button>
+            </div>
+          </div>
+        `;
+        carregarMinhasLojas();
+        carregarCarrinho();
+        carregarPedidos();
+      }
+
+      window.loginGoogle = loginGoogle;
+      window.logout = logout;
+      window.abrirUpgradeLoja = () => {
+        const nome = prompt('Nome da sua loja');
+        const whatsapp = prompt('WhatsApp da loja (somente números)');
+        const descricao = prompt('Descrição da loja');
+        const tipoDocumento = prompt('Digite CPF ou CNPJ', 'cpf');
+        const documento = prompt('CPF ou CNPJ da loja');
+        const endereco = prompt('Endereço da loja');
+        if (!nome || !whatsapp || !documento || !tipoDocumento) {
+          alert('Preencha nome, WhatsApp, tipo de documento e CPF/CNPJ para abrir sua loja.');
+          return;
+        }
+        fetch('/lojas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
+          body: JSON.stringify({ nome, descricao, whatsapp, endereco, latitude: null, longitude: null, documento, tipo_documento: tipoDocumento.toLowerCase() })
+        }).then(async (response) => {
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.erro || 'Erro ao criar loja');
+          alert('Loja criada com sucesso!');
+          return carregarMinhasLojas();
+        }).catch((err) => alert(err.message));
+      };
+      window.selecionarLoja = async (lojaId) => {
+        state.lojaSelecionada = lojaId;
+        showPage('vitrine');
+        await carregarVitrine(lojaId);
+        await carregarCarrinho();
+      };
+      window.adicionarCarrinho = async (produtoId, lojaId, preco) => {
+        if (!state.usuario || !state.token) return alert('Faça login para adicionar produtos ao carrinho.');
+        const carrinhoResp = await fetch(`/carrinho/loja/${lojaId}`, { headers: { Authorization: `Bearer ${state.token}` } });
+        const carrinho = await carrinhoResp.json();
+        state.lojaSelecionada = lojaId;
+        state.carrinhoId = carrinho.id;
+        const response = await fetch(`/carrinho/${carrinho.id}/itens`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
+          body: JSON.stringify({ produto_id: produtoId, quantidade: 1, preco_unitario: preco })
+        });
+        if (!response.ok) return alert('Não foi possível adicionar o produto');
+        showPage('carrinho');
+        await carregarCarrinho();
+      };
+      window.finalizarPedido = async () => {
+        if (!state.usuario || !state.token || !state.carrinhoId) return alert('Você precisa adicionar produtos ao carrinho primeiro.');
+        const response = await fetch('/pedidos/finalizar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
+          body: JSON.stringify({ carrinho_id: state.carrinhoId })
+        });
+        const result = await response.json();
+        if (!response.ok) return alert(result.erro || 'Não foi possível finalizar o pedido');
+        if (result.linkWhatsapp) window.open(result.linkWhatsapp, '_blank');
+        else alert('Pedido enviado');
+      };
+
+      state.supabase?.auth.onAuthStateChange((_event, session) => {
+        state.usuario = session?.user || null;
+        state.token = session?.access_token || null;
+        render();
+      });
+
+      init();
+    </script>
+  </body>
+</html>
