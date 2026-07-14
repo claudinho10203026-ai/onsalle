@@ -1400,6 +1400,10 @@
         }
         const response = await fetch(`/carrinho/loja/${state.lojaSelecionada}`, { headers: { Authorization: `Bearer ${state.token}` } });
         const carrinho = await response.json();
+        if (!response.ok) {
+          carrinhoArea.innerHTML = `<div class="empty">${carrinho.erro || 'Não foi possível carregar o carrinho.'}</div>`;
+          return;
+        }
         state.carrinhoId = carrinho.id;
         if (!carrinho?.carrinho_itens?.length) {
           carrinhoArea.innerHTML = '<div class="empty">Seu carrinho está vazio.</div>';
@@ -1650,18 +1654,38 @@
         if (!state.usuario || !state.token) return alert('Faça login para adicionar produtos ao carrinho.');
         const qtyInput = document.getElementById(`qty-${produtoId}`);
         const quantidade = Math.max(1, parseInt(qtyInput?.value, 10) || 1);
-        const carrinhoResp = await fetch(`/carrinho/loja/${lojaId}`, { headers: { Authorization: `Bearer ${state.token}` } });
-        const carrinho = await carrinhoResp.json();
-        state.lojaSelecionada = lojaId;
-        state.carrinhoId = carrinho.id;
-        const response = await fetch(`/carrinho/${carrinho.id}/itens`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
-          body: JSON.stringify({ produto_id: produtoId, quantidade, preco_unitario: preco })
-        });
-        if (!response.ok) return alert('Não foi possível adicionar o produto');
-        showPage('carrinho');
-        await carregarCarrinho();
+        const precoUnitario = Number(preco);
+
+        try {
+          const carrinhoResp = await fetch(`/carrinho/loja/${lojaId}`, { headers: { Authorization: `Bearer ${state.token}` } });
+          const carrinho = await carrinhoResp.json();
+          if (!carrinhoResp.ok) {
+            return alert(carrinho.erro || 'Não foi possível abrir o carrinho.');
+          }
+          if (!carrinho?.id) {
+            return alert('Não foi possível criar o carrinho. Tente novamente.');
+          }
+
+          state.lojaSelecionada = lojaId;
+          state.carrinhoId = carrinho.id;
+
+          const response = await fetch(`/carrinho/${carrinho.id}/itens`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
+            body: JSON.stringify({ produto_id: produtoId, quantidade, preco_unitario: precoUnitario })
+          });
+
+          const result = await response.json();
+          if (!response.ok) {
+            return alert(result.erro || 'Não foi possível adicionar o produto ao carrinho.');
+          }
+
+          showPage('carrinho');
+          await carregarCarrinho();
+        } catch (error) {
+          console.error('Erro ao adicionar produto ao carrinho', error);
+          alert('Erro de conexão. Tente novamente em alguns instantes.');
+        }
       };
       window.finalizarPedido = async () => {
         if (!state.usuario || !state.token || !state.carrinhoId) return alert('Você precisa adicionar produtos ao carrinho primeiro.');
