@@ -151,6 +151,7 @@
       .hero p { color: var(--sb-text-muted); max-width: 620px; }
       .btn-primary { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 10px; border: none; background: var(--sb-accent); color: white; cursor: pointer; }
       .btn-secondary { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--sb-border); background: var(--sb-surface); color: var(--sb-text); cursor: pointer; }
+      .btn-danger { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(239,68,68,0.25); background: rgba(239,68,68,0.08); color: #ef4444; cursor: pointer; }
       .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
       .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: var(--sb-accent-dim); color: var(--sb-accent); font-size: 12px; font-weight: 600; }
       .store-card, .product-card { background: var(--sb-surface); border: 1px solid var(--sb-border); border-radius: 16px; padding: 16px; box-shadow: var(--sb-shadow); }
@@ -180,6 +181,10 @@
       ul { padding-left: 18px; }
       .empty { color: var(--sb-text-muted); padding: 20px 0; }
       .mobile-only { display: none; }
+      .owner-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: rgba(37,99,235,0.12); color: var(--sb-accent); font-size: 11px; font-weight: 700; margin-bottom: 8px; }
+      .photo-choice-row { display: flex; gap: 8px; flex-wrap: wrap; }
+      .photo-choice-btn { position: relative; overflow: hidden; }
+      .photo-choice-btn input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
       @media (max-width: 1200px) {
         .hero { flex-direction: column; align-items: flex-start; }
         .hero h1 { font-size: 24px; }
@@ -310,6 +315,13 @@
         <div class="card">
           <h2><i class="fas fa-map-marked-alt"></i> Lojas próximas</h2>
           <p class="muted" style="margin-top:8px;">Permita acesso à localização para listar estabelecimentos perto de você.</p>
+          <div class="row" style="margin-top:12px;">
+            <div class="field" style="flex:1; min-width:180px; margin-bottom:0;">
+              <label>Raio em km</label>
+              <input type="number" id="raioLojaKm" min="1" max="100" value="15" />
+            </div>
+            <button class="btn-primary" id="btnBuscarLojasProximas" type="button"><i class="fas fa-location-dot"></i> Buscar</button>
+          </div>
           <div id="lojasArea" style="margin-top:16px;"></div>
         </div>
       </section>
@@ -317,7 +329,14 @@
       <section class="page-section" id="page-vitrine">
         <div class="card">
           <h2><i class="fas fa-store"></i> Vitrine da loja</h2>
-          <p class="muted" style="margin-top:8px;">Escolha uma loja para visualizar os produtos e adicionar itens ao carrinho.</p>
+          <p class="muted" style="margin-top:8px;">Veja a vitrine da loja selecionada, compartilhe e adicione itens ao carrinho.</p>
+          <div class="row" style="margin-top:12px;">
+            <div class="field" style="flex:1; min-width:220px; margin-bottom:0;">
+              <label>Loja</label>
+              <select id="vitrineLojaSelect"></select>
+            </div>
+            <button class="btn-secondary" id="btnAtualizarVitrine" type="button"><i class="fas fa-rotate-right"></i> Atualizar</button>
+          </div>
           <div id="vitrineArea" style="margin-top:16px;"></div>
         </div>
       </section>
@@ -356,14 +375,32 @@
               </div>
               <div class="field">
                 <label>Logo da vitrine</label>
-                <input type="file" id="lojaLogoFileInput" accept="image/*" capture="environment" />
-                <input type="text" id="lojaLogoUrl" placeholder="ou cole uma URL aqui" />
+                <div class="photo-choice-row">
+                  <button type="button" class="btn-secondary photo-choice-btn">
+                    <i class="fas fa-camera"></i> Tirar foto
+                    <input type="file" id="lojaLogoCameraInput" accept="image/*" capture="environment" />
+                  </button>
+                  <button type="button" class="btn-secondary photo-choice-btn">
+                    <i class="fas fa-image"></i> Escolher da galeria
+                    <input type="file" id="lojaLogoGalleryInput" accept="image/*" />
+                  </button>
+                </div>
+                <input type="text" id="lojaLogoUrl" placeholder="ou cole uma URL aqui" style="margin-top:8px;" />
                 <small class="muted">Tire uma foto agora ou escolha da galeria. Se quiser, você pode colar uma URL também.</small>
               </div>
               <div class="field">
                 <label>Capa da vitrine</label>
-                <input type="file" id="lojaCoverFileInput" accept="image/*" capture="environment" />
-                <input type="text" id="lojaCoverUrl" placeholder="ou cole uma URL aqui" />
+                <div class="photo-choice-row">
+                  <button type="button" class="btn-secondary photo-choice-btn">
+                    <i class="fas fa-camera"></i> Tirar foto
+                    <input type="file" id="lojaCoverCameraInput" accept="image/*" capture="environment" />
+                  </button>
+                  <button type="button" class="btn-secondary photo-choice-btn">
+                    <i class="fas fa-image"></i> Escolher da galeria
+                    <input type="file" id="lojaCoverGalleryInput" accept="image/*" />
+                  </button>
+                </div>
+                <input type="text" id="lojaCoverUrl" placeholder="ou cole uma URL aqui" style="margin-top:8px;" />
                 <small class="muted">A imagem escolhida será enviada para o storage e usada na vitrine.</small>
               </div>
               <div class="field">
@@ -414,39 +451,58 @@
       </section>
 
       <section class="page-section" id="page-cadastrar-produto">
-        <div class="card">
-          <h2><i class="fas fa-box-open"></i> Cadastrar produto</h2>
-          <form id="produtoForm">
-            <div class="field">
-              <label>Loja</label>
-              <select id="produtoLojaId" required></select>
-            </div>
-            <div class="field">
-              <label>Nome</label>
-              <input type="text" id="produtoNome" required />
-            </div>
-            <div class="field">
-              <label>Descrição</label>
-              <textarea id="produtoDescricao"></textarea>
-            </div>
-            <div class="field">
-              <label>Preço</label>
-              <input type="number" id="produtoPreco" min="0" step="0.01" required />
-            </div>
-            <div class="field">
-              <label>Quantidade em estoque</label>
-              <input type="number" id="produtoQuantidade" min="0" value="0" required />
-            </div>
-            <div class="field">
-              <label>Foto do produto</label>
-              <input type="file" id="produtoFotoInput" accept="image/*" capture="environment" />
-            </div>
-            <div class="field">
-              <label>Fotos (URLs ou foto capturada, separadas por vírgula)</label>
-              <textarea id="produtoFotos" placeholder="https://...jpg, https://...png"></textarea>
-            </div>
-            <button class="btn-primary" type="submit"><i class="fas fa-save"></i> Salvar produto</button>
-          </form>
+        <div class="grid">
+          <div class="card">
+            <h2><i class="fas fa-box-open"></i> Cadastrar produto</h2>
+            <form id="produtoForm">
+              <div class="field">
+                <label>Loja</label>
+                <select id="produtoLojaId" required></select>
+              </div>
+              <div class="field">
+                <label>Nome</label>
+                <input type="text" id="produtoNome" required />
+              </div>
+              <div class="field">
+                <label>Descrição</label>
+                <textarea id="produtoDescricao"></textarea>
+              </div>
+              <div class="field">
+                <label>Preço</label>
+                <input type="number" id="produtoPreco" min="0" step="0.01" required />
+              </div>
+              <div class="field">
+                <label>Quantidade em estoque</label>
+                <input type="number" id="produtoQuantidade" min="0" value="0" required />
+              </div>
+              <div class="field">
+                <label>Foto do produto</label>
+                <div class="photo-choice-row">
+                  <button type="button" class="btn-secondary photo-choice-btn">
+                    <i class="fas fa-camera"></i> Tirar foto
+                    <input type="file" id="produtoFotoCameraInput" accept="image/*" capture="environment" multiple />
+                  </button>
+                  <button type="button" class="btn-secondary photo-choice-btn">
+                    <i class="fas fa-image"></i> Escolher da galeria
+                    <input type="file" id="produtoFotoGalleryInput" accept="image/*" multiple />
+                  </button>
+                </div>
+              </div>
+              <div class="field">
+                <label>Fotos (URLs ou foto capturada, separadas por vírgula)</label>
+                <textarea id="produtoFotos" placeholder="https://...jpg, https://...png"></textarea>
+              </div>
+              <div class="row" style="margin-top:0;">
+                <button id="produtoSubmitButton" class="btn-primary" type="submit"><i class="fas fa-save"></i> Salvar produto</button>
+                <button id="produtoCancelarEdicaoBtn" class="btn-secondary" type="button" style="display:none;"><i class="fas fa-times"></i> Cancelar edição</button>
+              </div>
+            </form>
+          </div>
+          <div class="card">
+            <h2><i class="fas fa-boxes-stacked"></i> Meus produtos</h2>
+            <p class="muted" style="margin-top:8px;">Edite, exclua ou compartilhe produtos da loja selecionada acima.</p>
+            <div id="produtosGerenciarArea" class="empty" style="margin-top:12px;">Selecione uma loja para gerenciar os produtos.</div>
+          </div>
         </div>
       </section>
 
@@ -479,9 +535,14 @@
       const state = {
         usuario: null,
         lojaSelecionada: null,
+        lojaSelecionadaManual: false,
         carrinhoId: null,
         lojas: [],
+        lojasPublicas: [],
         minhasLojas: [],
+        produtosVitrine: [],
+        produtosGerenciados: [],
+        produtoEditandoId: null,
         supabase: null,
         token: null
       };
@@ -494,6 +555,11 @@
       const dashboardArea = document.getElementById('dashboardArea');
       const lojasArea = document.getElementById('lojasArea');
       const vitrineArea = document.getElementById('vitrineArea');
+      const vitrineLojaSelect = document.getElementById('vitrineLojaSelect');
+      const raioLojaKmInput = document.getElementById('raioLojaKm');
+      const btnBuscarLojasProximas = document.getElementById('btnBuscarLojasProximas');
+      const btnAtualizarVitrine = document.getElementById('btnAtualizarVitrine');
+      const produtosGerenciarArea = document.getElementById('produtosGerenciarArea');
       const carrinhoArea = document.getElementById('carrinhoArea');
       const minhasLojasArea = document.getElementById('minhasLojasArea');
       const pedidosArea = document.getElementById('pedidosArea');
@@ -501,8 +567,6 @@
       const produtoLojaId = document.getElementById('produtoLojaId');
       const lojaForm = document.getElementById('lojaForm');
       const produtoForm = document.getElementById('produtoForm');
-      const lojaLogoFileInput = document.getElementById('lojaLogoFileInput');
-      const lojaCoverFileInput = document.getElementById('lojaCoverFileInput');
       const lojaLogoUrlInput = document.getElementById('lojaLogoUrl');
       const lojaCoverUrlInput = document.getElementById('lojaCoverUrl');
       const lojaPrimaryColorInput = document.getElementById('lojaPrimaryColor');
@@ -514,6 +578,7 @@
       const storePreviewLogo = document.getElementById('storePreviewLogo');
       const storePreviewTitle = document.getElementById('storePreviewTitle');
       const storePreviewSubtitle = document.getElementById('storePreviewSubtitle');
+      const produtoCancelarEdicaoBtn = document.getElementById('produtoCancelarEdicaoBtn');
 
       async function init() {
         const config = await fetch('/config').then((r) => r.json());
@@ -529,8 +594,9 @@
 
         bindEvents();
         await carregarUsuario();
-        await carregarLojasProximas();
+        await carregarLojasPublicas();
         await carregarMinhasLojas();
+        await carregarVitrinePadrao();
         await carregarPedidos();
       }
 
@@ -585,17 +651,33 @@
         });
 
         document.getElementById('btnHomeToVitrine').addEventListener('click', () => showPage('vitrine'));
+        btnBuscarLojasProximas.addEventListener('click', () => carregarLojasProximas(Number(raioLojaKmInput.value || 15)));
+        btnAtualizarVitrine.addEventListener('click', () => {
+          if (state.lojaSelecionada) {
+            carregarVitrine(state.lojaSelecionada);
+            carregarCarrinho();
+          } else {
+            carregarVitrinePadrao();
+          }
+        });
+        vitrineLojaSelect.addEventListener('change', async (event) => {
+          state.lojaSelecionada = event.target.value;
+          state.lojaSelecionadaManual = true;
+          await carregarVitrine(state.lojaSelecionada);
+          await carregarCarrinho();
+        });
 
         [lojaLogoUrlInput, lojaCoverUrlInput, lojaPrimaryColorInput, lojaSecondaryColorInput, lojaAccentColorInput, lojaHeroTitleInput, lojaHeroSubtitleInput].forEach((input) => {
           input.addEventListener('input', syncStorePreview);
           input.addEventListener('change', syncStorePreview);
         });
 
-        lojaLogoFileInput.addEventListener('change', () => handleStoreImageSelection(lojaLogoFileInput, lojaLogoUrlInput));
-        lojaCoverFileInput.addEventListener('change', () => handleStoreImageSelection(lojaCoverFileInput, lojaCoverUrlInput));
+        document.getElementById('lojaLogoCameraInput').addEventListener('change', (e) => handleStoreImageSelection(e.target, lojaLogoUrlInput));
+        document.getElementById('lojaLogoGalleryInput').addEventListener('change', (e) => handleStoreImageSelection(e.target, lojaLogoUrlInput));
+        document.getElementById('lojaCoverCameraInput').addEventListener('change', (e) => handleStoreImageSelection(e.target, lojaCoverUrlInput));
+        document.getElementById('lojaCoverGalleryInput').addEventListener('change', (e) => handleStoreImageSelection(e.target, lojaCoverUrlInput));
 
-        document.getElementById('produtoFotoInput').addEventListener('change', async (event) => {
-          const fileInput = event.target;
+        async function handleProdutoFotoFiles(fileInput) {
           const files = Array.from(fileInput.files || []);
           if (!files.length) return;
 
@@ -609,7 +691,16 @@
             document.getElementById('produtoFotos').value = [current, ...urls].filter(Boolean).join(', ');
           } catch (error) {
             alert(error.message || 'Não foi possível enviar a foto.');
+          } finally {
+            fileInput.value = '';
           }
+        }
+
+        document.getElementById('produtoFotoCameraInput').addEventListener('change', (e) => handleProdutoFotoFiles(e.target));
+        document.getElementById('produtoFotoGalleryInput').addEventListener('change', (e) => handleProdutoFotoFiles(e.target));
+
+        produtoCancelarEdicaoBtn.addEventListener('click', () => {
+          resetProdutoForm();
         });
 
         lojaForm.addEventListener('submit', async (event) => {
@@ -641,15 +732,19 @@
           if (!response.ok) return alert(result.erro || 'Não foi possível criar a loja');
           lojaForm.reset();
           syncStorePreview();
+          state.lojaSelecionadaManual = false;
           await carregarMinhasLojas();
           showPage('minhas-lojas');
         });
 
         produtoForm.addEventListener('submit', async (event) => {
           event.preventDefault();
+          const lojaId = document.getElementById('produtoLojaId').value;
+          if (!lojaId) return alert('Selecione uma loja antes de salvar o produto.');
+
           const fotos = document.getElementById('produtoFotos').value.split(',').map((item) => item.trim()).filter(Boolean);
           const payload = {
-            loja_id: document.getElementById('produtoLojaId').value,
+            loja_id: lojaId,
             nome: document.getElementById('produtoNome').value,
             descricao: document.getElementById('produtoDescricao').value,
             preco: Number(document.getElementById('produtoPreco').value),
@@ -657,15 +752,23 @@
             fotos,
             destaque: true
           };
-          const response = await fetch('/produtos', {
-            method: 'POST',
+
+          const url = state.produtoEditandoId ? `/produtos/${state.produtoEditandoId}` : '/produtos';
+          const method = state.produtoEditandoId ? 'PUT' : 'POST';
+          const response = await fetch(url, {
+            method,
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
             body: JSON.stringify(payload)
           });
           const result = await response.json();
           if (!response.ok) return alert(result.erro || 'Não foi possível salvar o produto');
-          produtoForm.reset();
-          alert('Produto cadastrado com sucesso');
+          const eraEdicao = Boolean(state.produtoEditandoId);
+          resetProdutoForm();
+          await carregarProdutosGerenciados(lojaId);
+          if (state.lojaSelecionada === lojaId) {
+            await carregarVitrine(lojaId);
+          }
+          alert(eraEdicao ? 'Produto atualizado com sucesso' : 'Produto cadastrado com sucesso');
         });
 
         window.addEventListener('resize', () => {
@@ -737,6 +840,30 @@
         } catch (error) {
           targetInput.value = originalValue;
           alert(error.message || 'Falha ao enviar a imagem.');
+        } finally {
+          input.value = '';
+        }
+      }
+
+      async function compartilharUrl(url, tipo, nome) {
+        const titulo = tipo === 'produto'
+          ? `Confira ${nome ? `o produto "${nome}"` : 'este produto'}`
+          : `Confira ${nome ? `a vitrine da loja "${nome}"` : 'esta vitrine'}`;
+
+        if (navigator.share) {
+          try {
+            await navigator.share({ title: titulo, text: titulo, url });
+            return;
+          } catch (error) {
+            if (error?.name === 'AbortError') return;
+          }
+        }
+
+        try {
+          await navigator.clipboard.writeText(url);
+          alert(`Link copiado para a área de transferência:\n${url}`);
+        } catch (error) {
+          window.prompt('Copie o link abaixo:', url);
         }
       }
 
@@ -773,8 +900,6 @@
       }
 
       async function carregarDashboard() {
-        const totalLojas = state.minhasLojas.length || 0;
-        const totalProdutos = state.minhasLojas.length ? '—' : 0;
         dashboardArea.innerHTML = `
           <div class="stat-card">
             <strong>${state.minhasLojas.length || 0}</strong>
@@ -795,18 +920,35 @@
         `;
       }
 
-      async function carregarLojasProximas() {
+      async function carregarLojasPublicas() {
+        try {
+          const response = await fetch('/lojas');
+          const lojas = await response.json();
+          state.lojasPublicas = Array.isArray(lojas) ? lojas : [];
+          if (!state.lojasPublicas.length) return;
+
+          vitrineLojaSelect.innerHTML = state.lojasPublicas.map((loja) => `<option value="${loja.id}" ${state.lojaSelecionada === loja.id ? 'selected' : ''}>${loja.nome}</option>`).join('');
+          if (!state.lojaSelecionada && state.lojasPublicas[0]) {
+            state.lojaSelecionada = state.lojasPublicas[0].id;
+          }
+        } catch (error) {
+          console.warn('Não foi possível carregar as lojas públicas', error);
+        }
+      }
+
+      async function carregarLojasProximas(raioKm = 15) {
         if (!navigator.geolocation) {
           lojasArea.innerHTML = '<div class="empty">Geolocalização não suportada pelo navegador.</div>';
           return;
         }
+
         navigator.geolocation.getCurrentPosition(async (pos) => {
           const { latitude, longitude } = pos.coords;
-          const response = await fetch(`/lojas/proximas?lat=${latitude}&lng=${longitude}&raio_km=15`);
+          const response = await fetch(`/lojas/proximas?lat=${latitude}&lng=${longitude}&raio_km=${raioKm}`);
           const lojas = await response.json();
           state.lojas = Array.isArray(lojas) ? lojas : [];
           if (!state.lojas.length) {
-            lojasArea.innerHTML = '<div class="empty">Nenhuma loja próxima foi encontrada.</div>';
+            lojasArea.innerHTML = '<div class="empty">Nenhuma loja próxima foi encontrada para este raio.</div>';
             return;
           }
           lojasArea.innerHTML = state.lojas.map((loja) => `
@@ -829,6 +971,7 @@
         if (!state.usuario || !state.token) {
           minhasLojasArea.innerHTML = '<div class="empty">Faça login para visualizar suas lojas.</div>';
           produtoLojaId.innerHTML = '<option value="">Primeiro crie uma loja</option>';
+          state.minhasLojas = [];
           return;
         }
         const response = await fetch('/lojas/minhas', { headers: { Authorization: `Bearer ${state.token}` } });
@@ -839,7 +982,11 @@
           produtoLojaId.innerHTML = '<option value="">Crie uma loja para cadastrar produtos</option>';
           return;
         }
+        const produtoLojaAnterior = produtoLojaId.value;
         produtoLojaId.innerHTML = state.minhasLojas.map((loja) => `<option value="${loja.id}">${loja.nome}</option>`).join('');
+        if (produtoLojaAnterior && state.minhasLojas.some((l) => l.id === produtoLojaAnterior)) {
+          produtoLojaId.value = produtoLojaAnterior;
+        }
         minhasLojasArea.innerHTML = state.minhasLojas.map((loja) => `
           <div class="store-card" style="margin-bottom:12px;">
             ${loja.cover_url ? `<img src="${loja.cover_url}" alt="Capa de ${loja.nome}" />` : ''}
@@ -848,46 +995,109 @@
             <p class="muted">WhatsApp: ${loja.whatsapp || '-'}</p>
             <div class="row">
               <button class="btn-secondary" onclick="window.selecionarLoja('${loja.id}')"><i class="fas fa-eye"></i> Abrir vitrine</button>
+              <button class="btn-secondary" onclick="window.compartilharVitrine('${loja.id}')"><i class="fas fa-share-nodes"></i> Compartilhar</button>
             </div>
           </div>
         `).join('');
         await carregarDashboard();
+        await carregarProdutosGerenciados(produtoLojaId.value);
+
+        if (!state.lojaSelecionadaManual) {
+          await carregarVitrinePadrao();
+        }
       }
 
       async function carregarVitrine(lojaId) {
+        if (!lojaId) return;
+        const souDono = state.minhasLojas.some((l) => l.id === lojaId);
         const [produtosResponse, lojaResponse] = await Promise.all([
           fetch(`/produtos/loja/${lojaId}/vitrine`),
           fetch(`/lojas/${lojaId}`)
         ]);
         const produtos = await produtosResponse.json();
         const loja = await lojaResponse.json().catch(() => null);
+        state.produtosVitrine = Array.isArray(produtos) ? produtos : [];
+
+        if (souDono) {
+          await carregarProdutosGerenciados(lojaId);
+        }
 
         const heroHtml = loja ? `
           <div class="store-hero-card" style="background: linear-gradient(135deg, ${loja.primary_color || '#2563eb'}, ${loja.secondary_color || '#0f766e'});">
             <div class="hero-copy">
+              ${souDono ? '<span class="owner-badge"><i class="fas fa-store-alt"></i> Sua loja</span><br>' : ''}
               <h3>${loja.hero_title || loja.nome}</h3>
               <p>${loja.hero_subtitle || loja.descricao || 'Vitrine personalizada com logo, cores e identidade visual.'}</p>
             </div>
             ${loja.logo_url ? `<img class="hero-logo" src="${loja.logo_url}" alt="Logo ${loja.nome}" />` : ''}
+            <div class="row" style="margin-top:0;">
+              <button class="btn-secondary" onclick="window.compartilharVitrine('${loja.id}')"><i class="fas fa-share-nodes"></i> Compartilhar</button>
+              ${souDono ? `<button class="btn-secondary" onclick="window.location.hash='cadastrar-produto'; window.showPage && window.showPage('cadastrar-produto')"><i class="fas fa-box-open"></i> Gerenciar produtos</button>` : ''}
+            </div>
           </div>
         ` : '';
 
-        if (!produtos.length) {
+        if (!state.produtosVitrine.length) {
           vitrineArea.innerHTML = `${heroHtml}<div class="empty">Essa loja ainda não possui produtos em destaque.</div>`;
           return;
         }
 
-        vitrineArea.innerHTML = `${heroHtml}${produtos.map((produto) => `
-          <div class="product-card" style="margin-bottom:12px;">
+        vitrineArea.innerHTML = `${heroHtml}${state.produtosVitrine.map((produto) => `
+          <div id="produto-${produto.id}" class="product-card" style="margin-bottom:12px;">
             <div class="pill"><i class="fas fa-tag"></i> R$ ${Number(produto.preco).toFixed(2)}</div>
             <h3 style="margin-top:10px;">${produto.nome}</h3>
             <p class="muted">${produto.descricao || 'Sem descrição'}</p>
             <p class="muted">${produto.disponivel ? 'Disponível' : 'Indisponível'}</p>
             <div class="row">
-              <button class="btn-primary" onclick="window.adicionarCarrinho('${produto.id}', '${lojaId}', '${produto.preco}')"><i class="fas fa-cart-plus"></i> Adicionar</button>
+              ${souDono ? `
+                <button class="btn-secondary" onclick="window.editarProdutoPorId('${produto.id}')"><i class="fas fa-edit"></i> Editar</button>
+                <button class="btn-danger" onclick="window.excluirProduto('${produto.id}', '${lojaId}')"><i class="fas fa-trash"></i> Excluir</button>
+                <button class="btn-secondary" onclick="window.compartilharProduto('${produto.id}', '${lojaId}')"><i class="fas fa-share-alt"></i> Compartilhar</button>
+              ` : `
+                <button class="btn-primary" onclick="window.adicionarCarrinho('${produto.id}', '${lojaId}', '${produto.preco}')"><i class="fas fa-cart-plus"></i> Adicionar</button>
+                <button class="btn-secondary" onclick="window.compartilharProduto('${produto.id}', '${lojaId}')"><i class="fas fa-share-alt"></i> Compartilhar</button>
+              `}
             </div>
           </div>
         `).join('')}`;
+
+        const params = new URLSearchParams(window.location.search);
+        const produtoId = params.get('produto');
+        if (produtoId) {
+          const target = document.getElementById(`produto-${produtoId}`);
+          target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+
+      async function carregarVitrinePadrao() {
+        await carregarLojasPublicas();
+        const params = new URLSearchParams(window.location.search);
+        const lojaParam = params.get('loja');
+
+        let lojaAlvo = lojaParam;
+        if (!lojaAlvo) {
+          if (!state.lojaSelecionadaManual && state.minhasLojas.length) {
+            lojaAlvo = state.minhasLojas[0].id;
+          } else {
+            lojaAlvo = state.lojaSelecionada || state.lojasPublicas?.[0]?.id || state.lojas?.[0]?.id;
+          }
+        }
+
+        if (lojaAlvo) {
+          state.lojaSelecionada = lojaAlvo;
+          if (vitrineLojaSelect) {
+            if (!Array.from(vitrineLojaSelect.options).some((opt) => opt.value === lojaAlvo) && state.minhasLojas.some((l) => l.id === lojaAlvo)) {
+              const minhaLoja = state.minhasLojas.find((l) => l.id === lojaAlvo);
+              const option = document.createElement('option');
+              option.value = minhaLoja.id;
+              option.textContent = minhaLoja.nome;
+              vitrineLojaSelect.prepend(option);
+            }
+            vitrineLojaSelect.value = lojaAlvo;
+          }
+          await carregarVitrine(lojaAlvo);
+          await carregarCarrinho();
+        }
       }
 
       async function carregarCarrinho() {
@@ -937,6 +1147,57 @@
             <p class="muted">Total: R$ ${Number(pedido.total).toFixed(2)}</p>
           </div>
         `).join('');
+      }
+
+      async function carregarProdutosGerenciados(lojaId) {
+        if (!state.usuario || !state.token || !lojaId) {
+          produtosGerenciarArea.innerHTML = '<div class="empty">Selecione uma loja para gerenciar os produtos.</div>';
+          state.produtosGerenciados = [];
+          return;
+        }
+        const response = await fetch(`/produtos/loja/${lojaId}/gerenciar`, { headers: { Authorization: `Bearer ${state.token}` } });
+        const produtos = await response.json();
+        state.produtosGerenciados = Array.isArray(produtos) ? produtos : [];
+        if (!state.produtosGerenciados.length) {
+          produtosGerenciarArea.innerHTML = '<div class="empty">Nenhum produto cadastrado nesta loja ainda.</div>';
+          return;
+        }
+        produtosGerenciarArea.innerHTML = state.produtosGerenciados.map((produto) => `
+          <div class="store-card" style="margin-bottom:10px;">
+            <h4>${produto.nome}</h4>
+            <p class="muted">R$ ${Number(produto.preco).toFixed(2)} · Estoque: ${produto.quantidade_estoque ?? 0}</p>
+            <div class="row">
+              <button class="btn-secondary" onclick="window.editarProdutoPorId('${produto.id}')"><i class="fas fa-edit"></i> Editar</button>
+              <button class="btn-danger" onclick="window.excluirProduto('${produto.id}', '${lojaId}')"><i class="fas fa-trash"></i> Excluir</button>
+              <button class="btn-secondary" onclick="window.compartilharProduto('${produto.id}', '${lojaId}')"><i class="fas fa-share-alt"></i> Compartilhar</button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      function resetProdutoForm() {
+        produtoForm.reset();
+        document.getElementById('produtoQuantidade').value = '0';
+        document.getElementById('produtoPreco').value = '';
+        document.getElementById('produtoFotos').value = '';
+        state.produtoEditandoId = null;
+        document.getElementById('produtoSubmitButton').innerHTML = '<i class="fas fa-save"></i> Salvar produto';
+        produtoCancelarEdicaoBtn.style.display = 'none';
+      }
+
+      function preencherFormularioProduto(produto) {
+        if (produto.loja_id && produtoLojaId) {
+          produtoLojaId.value = produto.loja_id;
+        }
+        document.getElementById('produtoNome').value = produto.nome || '';
+        document.getElementById('produtoDescricao').value = produto.descricao || '';
+        document.getElementById('produtoPreco').value = produto.preco || '';
+        document.getElementById('produtoQuantidade').value = produto.quantidade_estoque ?? 0;
+        document.getElementById('produtoFotos').value = (produto.produto_fotos || []).map((foto) => foto.url).join(', ');
+        state.produtoEditandoId = produto.id;
+        document.getElementById('produtoSubmitButton').innerHTML = '<i class="fas fa-save"></i> Salvar alterações';
+        produtoCancelarEdicaoBtn.style.display = '';
+        showPage('cadastrar-produto');
       }
 
       function showPage(page) {
@@ -994,8 +1255,40 @@
         carregarPedidos();
       }
 
+      window.showPage = showPage;
       window.loginGoogle = loginGoogle;
       window.logout = logout;
+      window.editarProdutoPorId = (produtoId) => {
+        const produto = state.produtosGerenciados.find((p) => p.id === produtoId) || state.produtosVitrine.find((p) => p.id === produtoId);
+        if (produto) preencherFormularioProduto(produto);
+      };
+      window.excluirProduto = async (produtoId, lojaId) => {
+        if (!confirm('Deseja excluir este produto?')) return;
+        const response = await fetch(`/produtos/${produtoId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${state.token}` }
+        });
+        if (!response.ok) return alert('Não foi possível excluir o produto');
+        await carregarProdutosGerenciados(lojaId);
+        if (state.lojaSelecionada === lojaId) {
+          await carregarVitrine(lojaId);
+        }
+        alert('Produto excluído com sucesso');
+      };
+      window.compartilharVitrine = async (lojaId) => {
+        const loja = [...state.minhasLojas, ...state.lojasPublicas, ...state.lojas].find((l) => l.id === lojaId);
+        const shareUrl = new URL(window.location.href);
+        shareUrl.searchParams.set('loja', lojaId);
+        shareUrl.searchParams.delete('produto');
+        await compartilharUrl(shareUrl.toString(), 'vitrine', loja?.nome);
+      };
+      window.compartilharProduto = async (produtoId, lojaId) => {
+        const produto = [...state.produtosVitrine, ...state.produtosGerenciados].find((p) => p.id === produtoId);
+        const shareUrl = new URL(window.location.href);
+        shareUrl.searchParams.set('loja', lojaId);
+        shareUrl.searchParams.set('produto', produtoId);
+        await compartilharUrl(shareUrl.toString(), 'produto', produto?.nome);
+      };
       window.abrirUpgradeLoja = () => {
         const nome = prompt('Nome da sua loja');
         const whatsapp = prompt('WhatsApp da loja (somente números)');
@@ -1015,11 +1308,14 @@
           const result = await response.json();
           if (!response.ok) throw new Error(result.erro || 'Erro ao criar loja');
           alert('Loja criada com sucesso!');
+          state.lojaSelecionadaManual = false;
           return carregarMinhasLojas();
         }).catch((err) => alert(err.message));
       };
       window.selecionarLoja = async (lojaId) => {
         state.lojaSelecionada = lojaId;
+        state.lojaSelecionadaManual = true;
+        if (vitrineLojaSelect) vitrineLojaSelect.value = lojaId;
         showPage('vitrine');
         await carregarVitrine(lojaId);
         await carregarCarrinho();
@@ -1058,6 +1354,13 @@
         state.usuario = session?.user || null;
         state.token = session?.access_token || null;
         render();
+      });
+
+      document.getElementById('produtoLojaId').addEventListener('change', async (event) => {
+        const lojaId = event.target.value;
+        if (lojaId) {
+          await carregarProdutosGerenciados(lojaId);
+        }
       });
 
       init();
