@@ -5,16 +5,19 @@ const { supabaseAdmin } = require('../config/supabaseClient');
 const router = express.Router();
 const BUCKET_NAME = process.env.SUPABASE_STORAGE_BUCKET || 'vitrine';
 
-// Vitrine pública de uma loja - usa a view sem quantidade_estoque
+// Vitrine pública de uma loja - busca produtos ativos diretamente da tabela
 router.get('/loja/:lojaId/vitrine', async (req, res) => {
   if (!supabaseAdmin) {
     return res.status(503).json({ erro: 'Supabase não configurado. Configure o projeto no .env.' });
   }
 
   const { data, error } = await supabaseAdmin
-    .from('vw_vitrine_produtos')
+    .from('produtos')
     .select('*, produto_fotos(url, ordem)')
-    .eq('loja_id', req.params.lojaId);
+    .eq('loja_id', req.params.lojaId)
+    .eq('ativo', true)
+    .order('destaque', { ascending: false })
+    .order('created_at', { ascending: false });
 
   if (error) return res.status(400).json({ erro: error.message });
   res.json(data);
@@ -74,11 +77,11 @@ router.post('/upload-foto', autenticar, async (req, res) => {
 
 // Cadastrar produto (dono da loja)
 router.post('/', autenticar, async (req, res) => {
-  const { loja_id, categoria_id, nome, descricao, preco, quantidade_estoque, fotos, destaque } = req.body;
+  const { loja_id, categoria_id, nome, descricao, preco, quantidade_estoque, fotos, destaque, ativo = true } = req.body;
 
   const { data: produto, error } = await req.supabase
     .from('produtos')
-    .insert({ loja_id, categoria_id, nome, descricao, preco, quantidade_estoque, destaque: Boolean(destaque) })
+    .insert({ loja_id, categoria_id, nome, descricao, preco, quantidade_estoque, destaque: Boolean(destaque), ativo: Boolean(ativo) })
     .select()
     .single();
 

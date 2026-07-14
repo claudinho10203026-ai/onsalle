@@ -547,6 +547,9 @@
                 <input type="number" id="produtoQuantidade" min="0" value="0" required />
               </div>
               <div class="field">
+                <label><input type="checkbox" id="produtoAtivo" checked /> Produto ativo</label>
+              </div>
+              <div class="field">
                 <label>Foto do produto</label>
                 <div class="photo-choice-row">
                   <button type="button" class="btn-secondary photo-choice-btn">
@@ -849,7 +852,8 @@
             preco: Number(document.getElementById('produtoPreco').value),
             quantidade_estoque: Number(document.getElementById('produtoQuantidade').value),
             fotos,
-            destaque: true
+            destaque: true,
+            ativo: document.getElementById('produtoAtivo').checked
           };
 
           const url = state.produtoEditandoId ? `/produtos/${state.produtoEditandoId}` : '/produtos';
@@ -1450,7 +1454,7 @@
         produtosGerenciarArea.innerHTML = state.produtosGerenciados.map((produto) => `
           <div class="store-card" style="margin-bottom:10px;">
             <h4>${produto.nome}</h4>
-            <p class="muted">R$ ${Number(produto.preco).toFixed(2)} · Estoque: ${produto.quantidade_estoque ?? 0}</p>
+            <p class="muted">R$ ${Number(produto.preco).toFixed(2)} · Estoque: ${produto.quantidade_estoque ?? 0} · ${produto.ativo ? 'Ativo' : 'Inativo'}</p>
             <div class="row">
               <button class="btn-secondary" onclick="window.editarProdutoPorId('${produto.id}')"><i class="fas fa-edit"></i> Editar</button>
               <button class="btn-danger" onclick="window.excluirProduto('${produto.id}', '${lojaId}')"><i class="fas fa-trash"></i> Excluir</button>
@@ -1465,6 +1469,7 @@
         document.getElementById('produtoQuantidade').value = '0';
         document.getElementById('produtoPreco').value = '';
         document.getElementById('produtoFotos').value = '';
+        document.getElementById('produtoAtivo').checked = true;
         state.produtoEditandoId = null;
         document.getElementById('produtoSubmitButton').innerHTML = '<i class="fas fa-save"></i> Salvar produto';
         produtoCancelarEdicaoBtn.style.display = 'none';
@@ -1478,6 +1483,7 @@
         document.getElementById('produtoDescricao').value = produto.descricao || '';
         document.getElementById('produtoPreco').value = produto.preco || '';
         document.getElementById('produtoQuantidade').value = produto.quantidade_estoque ?? 0;
+        document.getElementById('produtoAtivo').checked = produto.ativo !== false;
         document.getElementById('produtoFotos').value = (produto.produto_fotos || []).map((foto) => foto.url).join(', ');
         state.produtoEditandoId = produto.id;
         document.getElementById('produtoSubmitButton').innerHTML = '<i class="fas fa-save"></i> Salvar alterações';
@@ -1511,6 +1517,10 @@
         pageTitle.textContent = meta.title;
         pageSubtitle.textContent = meta.subtitle;
       }
+
+      window.showPage = showPage;
+      window.carregarVitrine = carregarVitrine;
+      window.carregarVitrinePadrao = carregarVitrinePadrao;
 
       function render() {
         const vendedorGroup = document.getElementById('vendedorGroup');
