@@ -355,12 +355,16 @@
                 <input type="text" id="lojaEndereco" />
               </div>
               <div class="field">
-                <label>Logo da vitrine (URL ou data URL)</label>
-                <input type="text" id="lojaLogoUrl" placeholder="https://...png" />
+                <label>Logo da vitrine</label>
+                <input type="file" id="lojaLogoFileInput" accept="image/*" capture="environment" />
+                <input type="text" id="lojaLogoUrl" placeholder="ou cole uma URL aqui" />
+                <small class="muted">Tire uma foto agora ou escolha da galeria. Se quiser, você pode colar uma URL também.</small>
               </div>
               <div class="field">
-                <label>Capa da vitrine (URL ou data URL)</label>
-                <input type="text" id="lojaCoverUrl" placeholder="https://...jpg" />
+                <label>Capa da vitrine</label>
+                <input type="file" id="lojaCoverFileInput" accept="image/*" capture="environment" />
+                <input type="text" id="lojaCoverUrl" placeholder="ou cole uma URL aqui" />
+                <small class="muted">A imagem escolhida será enviada para o storage e usada na vitrine.</small>
               </div>
               <div class="field">
                 <label>Cor principal</label>
@@ -497,6 +501,8 @@
       const produtoLojaId = document.getElementById('produtoLojaId');
       const lojaForm = document.getElementById('lojaForm');
       const produtoForm = document.getElementById('produtoForm');
+      const lojaLogoFileInput = document.getElementById('lojaLogoFileInput');
+      const lojaCoverFileInput = document.getElementById('lojaCoverFileInput');
       const lojaLogoUrlInput = document.getElementById('lojaLogoUrl');
       const lojaCoverUrlInput = document.getElementById('lojaCoverUrl');
       const lojaPrimaryColorInput = document.getElementById('lojaPrimaryColor');
@@ -585,38 +591,25 @@
           input.addEventListener('change', syncStorePreview);
         });
 
+        lojaLogoFileInput.addEventListener('change', () => handleStoreImageSelection(lojaLogoFileInput, lojaLogoUrlInput));
+        lojaCoverFileInput.addEventListener('change', () => handleStoreImageSelection(lojaCoverFileInput, lojaCoverUrlInput));
+
         document.getElementById('produtoFotoInput').addEventListener('change', async (event) => {
           const fileInput = event.target;
           const files = Array.from(fileInput.files || []);
           if (!files.length) return;
 
-          if (!state.token) {
-            alert('Faça login para enviar a foto para o storage.');
-            return;
-          }
-
-          const urls = [];
-          for (const file of files) {
-            const dataUrl = await readFileAsDataUrl(file);
-            const response = await fetch('/produtos/upload-foto', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
-              body: JSON.stringify({
-                fileName: file.name,
-                contentType: file.type || 'image/jpeg',
-                dataUrl
-              })
-            });
-            const result = await response.json();
-            if (!response.ok) {
-              alert(result.erro || 'Não foi possível enviar a foto.');
-              continue;
+          try {
+            const urls = [];
+            for (const file of files) {
+              urls.push(await uploadImageToStorage(file));
             }
-            urls.push(result.url);
-          }
 
-          const current = document.getElementById('produtoFotos').value;
-          document.getElementById('produtoFotos').value = [current, ...urls].filter(Boolean).join(', ');
+            const current = document.getElementById('produtoFotos').value;
+            document.getElementById('produtoFotos').value = [current, ...urls].filter(Boolean).join(', ');
+          } catch (error) {
+            alert(error.message || 'Não foi possível enviar a foto.');
+          }
         });
 
         lojaForm.addEventListener('submit', async (event) => {
@@ -647,6 +640,7 @@
           const result = await response.json();
           if (!response.ok) return alert(result.erro || 'Não foi possível criar a loja');
           lojaForm.reset();
+          syncStorePreview();
           await carregarMinhasLojas();
           showPage('minhas-lojas');
         });
@@ -705,6 +699,45 @@
           reader.onerror = () => reject(reader.error);
           reader.readAsDataURL(file);
         });
+      }
+
+      async function uploadImageToStorage(file) {
+        if (!state.token) {
+          throw new Error('Faça login para enviar a imagem para o storage.');
+        }
+
+        const dataUrl = await readFileAsDataUrl(file);
+        const response = await fetch('/produtos/upload-foto', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
+          body: JSON.stringify({
+            fileName: file.name,
+            contentType: file.type || 'image/jpeg',
+            dataUrl
+          })
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.erro || 'Não foi possível enviar a imagem.');
+        }
+        return result.url;
+      }
+
+      async function handleStoreImageSelection(input, targetInput) {
+        const file = input.files?.[0];
+        if (!file) return;
+
+        const originalValue = targetInput.value;
+        targetInput.value = 'Enviando imagem...';
+
+        try {
+          const url = await uploadImageToStorage(file);
+          targetInput.value = url;
+          syncStorePreview();
+        } catch (error) {
+          targetInput.value = originalValue;
+          alert(error.message || 'Falha ao enviar a imagem.');
+        }
       }
 
       async function carregarUsuario() {
