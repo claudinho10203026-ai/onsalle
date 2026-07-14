@@ -7,9 +7,17 @@ const { notificarUsuario } = require('../services/push.service');
 const router = express.Router();
 
 // Finaliza o pedido:
-// 1) chama a função do banco (transação atômica: cria pedido, baixa estoque)
+// 1) chama a função do banco (transação atômica: cria pedido, baixa estoque
+//    sem deixar ficar negativo, e marca quais itens excederam o estoque)
 // 2) monta o link do WhatsApp já com a mensagem pronta
 // 3) dispara a notificação push para o dono da loja
+//
+// ALTERADO: finalizar_pedido não bloqueia mais o pedido quando a
+// quantidade escolhida é maior que o estoque — o pedido é criado do mesmo
+// jeito e a função agora devolve um JSON com `itens_insuficientes`. Esse
+// alerta é repassado no `itensInsuficientes` da resposta, para o front-end
+// avisar o cliente a confirmar a disponibilidade com o dono da loja pelo
+// WhatsApp.
 router.post('/finalizar', autenticar, async (req, res) => {
   if (!supabaseAdmin) {
     return res.status(503).json({ erro: 'Supabase não configurado. Configure o projeto no .env.' });
@@ -17,11 +25,14 @@ router.post('/finalizar', autenticar, async (req, res) => {
 
   const { carrinho_id } = req.body;
 
-  const { data: pedidoId, error } = await req.supabase.rpc('finalizar_pedido', {
+  const { data: resultado, error } = await req.supabase.rpc('finalizar_pedido', {
     p_carrinho_id: carrinho_id
   });
 
   if (error) return res.status(400).json({ erro: error.message });
+
+  const pedidoId = resultado?.pedido_id;
+  const itensInsuficientes = resultado?.itens_insuficientes || [];
 
   const { data: pedido } = await supabaseAdmin
     .from('pedidos')
@@ -46,7 +57,7 @@ router.post('/finalizar', autenticar, async (req, res) => {
     pedidoId: pedido.id
   });
 
-  res.json({ pedido, linkWhatsapp });
+  res.json({ pedido, linkWhatsapp, itensInsuficientes });
 });
 
 // Lista pedidos - o próprio RLS decide se retorna os pedidos como cliente
