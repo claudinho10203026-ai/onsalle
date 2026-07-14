@@ -1641,6 +1641,12 @@
         }
         const response = await fetch('/pedidos', { headers: { Authorization: `Bearer ${state.token}` } });
         const pedidos = await response.json();
+        if (!response.ok) {
+          state.pedidos = [];
+          pedidosArea.innerHTML = `<div class="empty">${pedidos.erro || 'Não foi possível carregar os pedidos.'}</div>`;
+          await carregarDashboard();
+          return;
+        }
         if (!Array.isArray(pedidos) || !pedidos.length) {
           state.pedidos = [];
           pedidosArea.innerHTML = '<div class="empty">Nenhum pedido encontrado.</div>';
@@ -1661,6 +1667,24 @@
           </div>
         `).join('');
         await carregarDashboard();
+      }
+
+      window.atualizarStatusPedido = async (pedidoId, status) => {
+        if (!state.usuario || !state.token) return alert('Faça login para atualizar pedidos.');
+        const response = await fetch(`/pedidos/${pedidoId}/status`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${state.token}`
+          },
+          body: JSON.stringify({ status })
+        });
+        const result = await response.json();
+        if (!response.ok) return alert(result.erro || 'Não foi possível atualizar o pedido.');
+        await carregarPedidos();
+        if (window.location.hash.replace('#', '') === 'contas-a-receber') await carregarContasAReceber();
+        if (window.location.hash.replace('#', '') === 'contas-pagas') await carregarContasPagas();
+        alert('Pedido atualizado com sucesso.');
       }
 
       async function carregarContasAReceber() {
@@ -1684,6 +1708,9 @@
             <p class="muted">Email: ${pedido.cliente_email || 'Não disponível'}</p>
             <p class="muted">Total a receber: R$ ${Number(pedido.total).toFixed(2)}</p>
             <p class="muted">Pagamento: ${pedido.forma_pagamento || 'WhatsApp'} • ${pedido.parcelas || 1} parcela(s)</p>
+            <div class="row" style="margin-top:12px; justify-content:flex-end; gap:8px;">
+              <button class="btn-primary" type="button" onclick="window.atualizarStatusPedido('${pedido.id}', 'concluido')">Marcar como pago</button>
+            </div>
           </div>
         `).join('');
       }
@@ -1712,11 +1739,15 @@
       }
 
       async function carregarRelatorioEstoque() {
-        if (!state.usuario || !state.token || !state.produtoLojaId?.value) {
-          estoqueArea.innerHTML = '<div class="empty">Selecione uma loja para ver o relatório de estoque.</div>';
+        if (!state.usuario || !state.token) {
+          estoqueArea.innerHTML = '<div class="empty">Faça login para ver o relatório de estoque.</div>';
           return;
         }
-        const lojaId = state.produtoLojaId.value;
+        const lojaId = state.produtoLojaId?.value || state.lojaSelecionada || state.minhasLojas?.[0]?.id;
+        if (!lojaId) {
+          estoqueArea.innerHTML = '<div class="empty">Selecione sua loja para ver o relatório de estoque.</div>';
+          return;
+        }
         const response = await fetch(`/produtos/loja/${lojaId}/gerenciar`, { headers: { Authorization: `Bearer ${state.token}` } });
         const produtos = await response.json();
         if (!Array.isArray(produtos) || !produtos.length) {

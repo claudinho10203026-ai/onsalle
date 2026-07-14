@@ -60,6 +60,24 @@ router.post('/finalizar', autenticar, async (req, res) => {
   res.json({ pedido, linkWhatsapp, itensInsuficientes });
 });
 
+router.patch('/:id/status', autenticar, async (req, res) => {
+  const { status } = req.body;
+  const validStatus = ['pendente', 'confirmado', 'concluido', 'cancelado'];
+  if (!validStatus.includes(status)) {
+    return res.status(400).json({ erro: 'Status de pedido inválido.' });
+  }
+
+  const { data, error } = await req.supabase
+    .from('pedidos')
+    .update({ status })
+    .eq('id', req.params.id)
+    .select()
+    .single();
+
+  if (error) return res.status(400).json({ erro: error.message });
+  res.json(data);
+});
+
 // Lista pedidos - o próprio RLS decide se retorna os pedidos como cliente
 // ou como dono de loja
 router.get('/', autenticar, async (req, res) => {
