@@ -71,9 +71,93 @@ function gerarPdfPagamento({ pedido, parcelas = [] }) {
   ]);
 }
 
+function gerarPdfBoleto({ pedido, loja = {}, parcela, parcelas = [] }) {
+  const titulo = parcela ? 'Boleto da parcela' : 'Boleto das parcelas';
+  const parcelasParaGerar = parcela ? [parcela] : parcelas;
+  const linhas = [
+    titulo,
+    '',
+    `Beneficiário: ${loja.nome || '—'}`,
+    `Documento: ${loja.documento || '—'}`,
+    `Endereço: ${[loja.endereco, loja.cidade, loja.estado].filter(Boolean).join(' - ') || '—'}`,
+    `WhatsApp: ${loja.whatsapp || '—'}`,
+    '',
+    `Pedido: ${pedido?.id || '—'}`,
+    `Cliente: ${pedido?.cliente_nome || '—'}`,
+    `Telefone do cliente: ${pedido?.cliente_telefone || '—'}`,
+    `Email do cliente: ${pedido?.cliente_email || '—'}`,
+    `Forma de pagamento: ${pedido?.forma_pagamento || '—'}`,
+    `Total do pedido: R$ ${Number(pedido?.total || 0).toFixed(2)}`,
+    '',
+    'Detalhes da parcela:'
+  ];
+
+  const linhasParcelas = parcelasParaGerar.map((parcelaItem) => {
+    const valor = Number(parcelaItem?.valor || 0).toFixed(2);
+    const vencimento = parcelaItem?.boleto_vencimento
+      ? new Date(parcelaItem.boleto_vencimento).toLocaleDateString('pt-BR')
+      : '—';
+    const status = parcelaItem?.status === 'pago' ? 'Pago' : 'Pendente';
+    const linhaDigitavel = parcelaItem?.boleto_linha_digitavel || '—';
+    const codigo = parcelaItem?.boleto_codigo || '—';
+    const nossoNumero = parcelaItem?.nosso_numero || '—';
+
+    return [
+      `Parcela ${parcelaItem.numero}: R$ ${valor}`,
+      `Vencimento: ${vencimento}`,
+      `Banco: ${parcelaItem.banco || '—'}`,
+      `Nosso número: ${nossoNumero}`,
+      `Código do boleto: ${codigo}`,
+      `Linha digitável: ${linhaDigitavel}`,
+      `Status: ${status}`,
+      `Baixa: ${parcelaItem.pago_em ? new Date(parcelaItem.pago_em).toLocaleString('pt-BR') : '—'}`,
+      ''
+    ];
+  }).flat();
+
+  const contentLines = [...linhas, ...linhasParcelas];
+  const content = contentLines
+    .map((line, index) => `BT /F1 11 Tf 50 ${760 - (index + 1) * 14} Td (${escapePdfText(line)}) Tj ET`)
+    .join('\n');
+
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+    `<< /Length ${Buffer.byteLength(content, 'utf8')} >>\nstream\n${content}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'
+  ];
+
+  let offset = 0;
+  const offsets = [];
+  const body = [];
+
+  objects.forEach((obj, index) => {
+    offsets.push(offset);
+    body.push(`${index + 1} 0 obj\n${obj}\nendobj`);
+    offset += Buffer.byteLength(body[body.length - 1], 'utf8');
+  });
+
+  const pdfHeader = '%PDF-1.4\n';
+  const pdfBody = body.join('\n');
+  const xrefPosition = Buffer.byteLength(pdfHeader + pdfBody, 'utf8');
+  const xrefLines = ['xref', `0 ${objects.length + 1}`, '0000000000 65535 f '];
+
+  offsets.forEach((value) => {
+    xrefLines.push(String(value).padStart(10, '0') + ' 00000 n ');
+  });
+
+  return Buffer.concat([
+    Buffer.from(pdfHeader, 'utf8'),
+    Buffer.from(pdfBody, 'utf8'),
+    Buffer.from(`\n${xrefLines.join('\n')}\ntrailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefPosition}\n%%EOF\n`, 'utf8')
+  ]);
+}
+
 const gerarPdfParcelas = gerarPdfPagamento;
 
 module.exports = {
   gerarPdfPagamento,
-  gerarPdfParcelas
+  gerarPdfParcelas,
+  gerarPdfBoleto
 };

@@ -297,8 +297,23 @@ create table if not exists public.pedido_parcelas (
   forma_pagamento text,
   status text not null default 'pendente' check (status in ('pendente','pago')),
   pago_em timestamptz,
+  boleto_codigo text,
+  boleto_linha_digitavel text,
+  boleto_vencimento date,
+  banco text,
+  nosso_numero text,
   created_at timestamptz not null default now(),
   unique (pedido_id, numero)
+);
+
+create table if not exists public.pedido_parcela_pagamentos (
+  id uuid primary key default uuid_generate_v4(),
+  pedido_parcela_id uuid not null references public.pedido_parcelas(id) on delete cascade,
+  forma_pagamento text not null,
+  valor numeric(10,2) not null check (valor >= 0),
+  pago_em timestamptz not null default now(),
+  observacao text,
+  created_at timestamptz not null default now()
 );
 
 -- ---------------------------------------------------------------------
@@ -501,8 +516,22 @@ begin
   update public.pedidos set total = v_total where id = v_pedido_id;
 
   if p_parcelas <= 1 then
-    insert into public.pedido_parcelas (pedido_id, numero, valor, forma_pagamento, status)
-    values (v_pedido_id, 1, v_total, coalesce(p_forma_pagamento, 'WhatsApp'), 'pendente');
+    insert into public.pedido_parcelas (
+      pedido_id, numero, valor, forma_pagamento, status,
+      boleto_codigo, boleto_linha_digitavel, boleto_vencimento, banco, nosso_numero
+    )
+    values (
+      v_pedido_id,
+      1,
+      v_total,
+      coalesce(p_forma_pagamento, 'WhatsApp'),
+      'pendente',
+      concat('BOL-', substr(replace(cast(v_pedido_id as text), '-', ''), 1, 8), '-01'),
+      concat('001', substr(replace(cast(v_pedido_id as text), '-', ''), 1, 10), '01', lpad(cast(round(v_total * 100) as text), 10, '0')),
+      (now() + interval '30 days')::date,
+      '001',
+      concat('NN', substr(replace(cast(v_pedido_id as text), '-', ''), 1, 8), '01')
+    );
   else
     v_parcela_valor := round(v_total / p_parcelas, 2);
     for i in 1..p_parcelas loop
@@ -511,8 +540,22 @@ begin
       else
         v_valor := round(v_total - v_acumulado, 2);
       end if;
-      insert into public.pedido_parcelas (pedido_id, numero, valor, forma_pagamento, status)
-      values (v_pedido_id, i, v_valor, coalesce(p_forma_pagamento, 'WhatsApp'), 'pendente');
+      insert into public.pedido_parcelas (
+        pedido_id, numero, valor, forma_pagamento, status,
+        boleto_codigo, boleto_linha_digitavel, boleto_vencimento, banco, nosso_numero
+      )
+      values (
+        v_pedido_id,
+        i,
+        v_valor,
+        coalesce(p_forma_pagamento, 'WhatsApp'),
+        'pendente',
+        concat('BOL-', substr(replace(cast(v_pedido_id as text), '-', ''), 1, 8), '-', lpad(cast(i as text), 2, '0')),
+        concat('001', substr(replace(cast(v_pedido_id as text), '-', ''), 1, 10), lpad(cast(i as text), 2, '0'), lpad(cast(round(v_valor * 100) as text), 10, '0')),
+        (now() + interval '30 days' * i)::date,
+        '001',
+        concat('NN', substr(replace(cast(v_pedido_id as text), '-', ''), 1, 8), lpad(cast(i as text), 2, '0'))
+      );
       v_acumulado := v_acumulado + v_valor;
     end loop;
   end if;
@@ -647,6 +690,39 @@ create policy "pedido_parcelas_update" on public.pedido_parcelas
     )
   );
 
+create policy "pedido_parcela_pagamentos_select" on public.pedido_parcela_pagamentos
+  for select using (
+    exists (
+      select 1 from public.pedido_parcelas pp
+      join public.pedidos pd on pd.id = pp.pedido_id
+      where pp.id = pedido_parcela_id
+        and (pd.cliente_id = auth.uid()
+          or exists (select 1 from public.lojas l where l.id = pd.loja_id and l.dono_id = auth.uid()))
+    )
+  );
+
+create policy "pedido_parcela_pagamentos_insert" on public.pedido_parcela_pagamentos
+  for insert with check (
+    exists (
+      select 1 from public.pedido_parcelas pp
+      join public.pedidos pd on pd.id = pp.pedido_id
+      where pp.id = pedido_parcela_id
+        and (pd.cliente_id = auth.uid()
+          or exists (select 1 from public.lojas l where l.id = pd.loja_id and l.dono_id = auth.uid()))
+    )
+  );
+
+create policy "pedido_parcela_pagamentos_update" on public.pedido_parcela_pagamentos
+  for update using (
+    exists (
+      select 1 from public.pedido_parcelas pp
+      join public.pedidos pd on pd.id = pp.pedido_id
+      where pp.id = pedido_parcela_id
+        and (pd.cliente_id = auth.uid()
+          or exists (select 1 from public.lojas l where l.id = pd.loja_id and l.dono_id = auth.uid()))
+    )
+  );
+
 create policy "push_subscriptions_gerencia_proprio" on public.push_subscriptions
   for all using (auth.uid() = usuario_id);
 
@@ -663,6 +739,7 @@ grant select, insert, update, delete on public.carrinhos, public.carrinho_itens 
 grant select, insert, update on public.pedidos to authenticated;
 grant select, insert on public.pedido_itens to authenticated;
 grant select, insert, update on public.pedido_parcelas to authenticated;
+grant select, insert, update on public.pedido_parcela_pagamentos to authenticated;
 grant select, insert, update, delete on public.push_subscriptions to authenticated;
 grant update on public.perfis to authenticated;
 

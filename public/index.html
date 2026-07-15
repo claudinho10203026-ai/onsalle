@@ -1721,28 +1721,17 @@
             ${parcelas.map((parcela) => `
               <div style="margin-top:8px; padding:10px; border:1px solid var(--sb-border); border-radius:10px; background:var(--sb-elevated);">
                 <p class="muted"><strong>Parcela ${parcela.numero || 1}</strong> • R$ ${Number(parcela.valor || 0).toFixed(2)}</p>
+                <p class="muted">Vencimento: ${parcela.boleto_vencimento ? new Date(parcela.boleto_vencimento).toLocaleDateString('pt-BR') : '—'}</p>
                 <p class="muted">Status: ${parcela.status === 'pago' ? 'Paga' : 'Pendente'}</p>
                 <p class="muted">Forma de pagamento: ${parcela.forma_pagamento || 'Ainda não definida'}</p>
                 <p class="muted">Criada em: ${formatarData(parcela.created_at)}</p>
                 <p class="muted">${parcela.status === 'pago' ? `Baixada em: ${formatarData(parcela.pago_em)}` : 'Aguardando baixa'}</p>
-                ${parcela.status === 'pago' ? '' : `
-                  <div class="field" style="margin-top:8px;">
-                    <label>Método de recebimento</label>
-                    <select id="parcelaMetodo-${pedido.id}-${parcela.id}">
-                      <option value="Dinheiro">Dinheiro</option>
-                      <option value="Pix">Pix</option>
-                      <option value="Cartão">Cartão</option>
-                      <option value="A prazo">A prazo</option>
-                    </select>
-                  </div>
-                  <div class="field">
-                    <label>Data da baixa</label>
-                    <input type="date" id="parcelaData-${pedido.id}-${parcela.id}" value="${hoje}" />
-                  </div>
-                  <div class="row" style="margin-top:4px; justify-content:flex-end;">
+                <div class="row" style="margin-top:8px; gap:8px; justify-content:flex-end; flex-wrap:wrap;">
+                  <button class="btn-secondary" type="button" onclick="window.downloadBoletoParcela('${pedido.id}', '${parcela.id}')">Baixar boleto</button>
+                  ${parcela.status === 'pago' ? '' : `
                     <button class="btn-primary" type="button" onclick="window.marcarParcelaPaga('${pedido.id}', '${parcela.id}')">Registrar baixa</button>
-                  </div>
-                `}
+                  `}
+                </div>
               </div>
             `).join('')}
           </div>
@@ -1784,7 +1773,12 @@
             ${pedido.pedido_itens?.length ? `<ul style="margin-top:8px;">${pedido.pedido_itens.map((item) => `<li>${item.quantidade}x ${item.nome_produto} — R$ ${Number(item.preco_unitario).toFixed(2)}</li>`).join('')}</ul>` : ''}
             ${renderBaixaPedido(pedido)}
             ${renderParcelasPedido(pedido)}
-            ${pedido.status === 'concluido' ? `<div class="row" style="margin-top:8px; justify-content:flex-end;"><button class="btn-secondary" type="button" onclick="window.downloadPdf('${pedido.id}', 'pagamento')">Baixar comprovante em PDF</button></div>` : ''}
+            ${pedido.status === 'concluido' ? `
+              <div class="row" style="margin-top:8px; justify-content:flex-end; gap:8px; flex-wrap:wrap;">
+                <button class="btn-secondary" type="button" onclick="window.downloadPdf('${pedido.id}', 'pagamento')">Baixar comprovante em PDF</button>
+                ${pedido.forma_pagamento === 'A prazo' ? `<button class="btn-secondary" type="button" onclick="window.downloadPdf('${pedido.id}', 'parcelas')">Baixar boletos</button>` : ''}
+              </div>
+            ` : ''}
           </div>
         `).join('');
         await carregarDashboard();
@@ -1861,7 +1855,26 @@
           return alert(err.erro || 'Não foi possível baixar o PDF.');
         }
         const blob = await res.blob();
-        const filename = `${tipo === 'parcelas' ? 'parcelas' : 'pagamento'}-${pedidoId}.pdf`;
+        const filename = `${tipo === 'parcelas' ? 'boleto-parcelas' : 'pagamento'}-${pedidoId}.pdf`;
+        const urlBlob = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = urlBlob;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(urlBlob);
+      };
+
+      window.downloadBoletoParcela = async (pedidoId, parcelaId) => {
+        if (!state.usuario || !state.token) return alert('Faça login para baixar o boleto.');
+        const res = await fetch(`/pedidos/${pedidoId}/pdf-boleto/${parcelaId}`, { headers: { Authorization: `Bearer ${state.token}` } });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          return alert(err.erro || 'Não foi possível baixar o boleto.');
+        }
+        const blob = await res.blob();
+        const filename = `boleto-parcela-${parcelaId}.pdf`;
         const urlBlob = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = urlBlob;
@@ -1880,27 +1893,32 @@
         if (!state.pedidos?.length) {
           await carregarPedidos();
         }
-        const pendentes = (state.pedidos || []).filter((pedido) => ['pendente', 'confirmado'].includes(pedido.status));
+        const pendentes = (state.pedidos || []).filter((pedido) => {
+          const parcelas = Array.isArray(pedido.pedido_parcelas) ? pedido.pedido_parcelas : [];
+          return parcelas.some((parcela) => parcela.status !== 'pago') || ['pendente', 'confirmado'].includes(pedido.status);
+        });
         if (!pendentes.length) {
           contasReceberArea.innerHTML = '<div class="empty">Nenhuma conta a receber no momento.</div>';
           return;
         }
-        contasReceberArea.innerHTML = pendentes.map((pedido) => `
-          <div class="store-card" style="margin-bottom:12px;">
-            <h3>Pedido #${String(pedido.id).slice(0, 8)}</h3>
-            <p class="muted">Cliente: ${pedido.cliente_nome || 'Não informado'}</p>
-            <p class="muted">Telefone: ${pedido.cliente_telefone || 'Não disponível'}</p>
-            <p class="muted">Email: ${pedido.cliente_email || 'Não disponível'}</p>
-            <p class="muted">Total a receber: R$ ${Number(pedido.total).toFixed(2)}</p>
-            <p class="muted">Pagamento: ${pedido.forma_pagamento || 'WhatsApp'} • ${pedido.parcelas || 1} parcela(s)</p>
-            <p class="muted">Pedido criado em: ${formatarData(pedido.created_at)}</p>
-            ${renderBaixaPedido(pedido)}
-            ${renderParcelasPedido(pedido)}
-            <div class="row" style="margin-top:12px; justify-content:flex-end; gap:8px;">
-              <button class="btn-primary" type="button" onclick="window.atualizarStatusPedido('${pedido.id}', 'concluido')">Marcar como pago</button>
+        contasReceberArea.innerHTML = pendentes.map((pedido) => {
+          const parcelas = Array.isArray(pedido.pedido_parcelas) ? pedido.pedido_parcelas : [];
+          const pendentesParcelas = parcelas.filter((parcela) => parcela.status !== 'pago');
+          const totalAReceber = pendentesParcelas.reduce((sum, parcela) => sum + Number(parcela.valor || 0), 0);
+          return `
+            <div class="store-card" style="margin-bottom:12px;">
+              <h3>Pedido #${String(pedido.id).slice(0, 8)}</h3>
+              <p class="muted">Cliente: ${pedido.cliente_nome || 'Não informado'}</p>
+              <p class="muted">Telefone: ${pedido.cliente_telefone || 'Não disponível'}</p>
+              <p class="muted">Email: ${pedido.cliente_email || 'Não disponível'}</p>
+              <p class="muted">Total pendente: R$ ${totalAReceber.toFixed(2)}</p>
+              <p class="muted">Pagamento: ${pedido.forma_pagamento || 'WhatsApp'} • ${pedido.parcelas || 1} parcela(s)</p>
+              <p class="muted">Pedido criado em: ${formatarData(pedido.created_at)}</p>
+              ${renderParcelasPedido(pedido)}
+              ${pedido.status !== 'concluido' ? `<div class="row" style="margin-top:12px; justify-content:flex-end; gap:8px;"><button class="btn-primary" type="button" onclick="window.atualizarStatusPedido('${pedido.id}', 'concluido')">Marcar como pago</button></div>` : ''}
             </div>
-          </div>
-        `).join('');
+          `;
+        }).join('');
       }
 
       async function carregarContasPagas() {
@@ -1911,7 +1929,10 @@
         if (!state.pedidos?.length) {
           await carregarPedidos();
         }
-        const pagos = (state.pedidos || []).filter((pedido) => pedido.status === 'concluido');
+        const pagos = (state.pedidos || []).filter((pedido) => {
+          const parcelas = Array.isArray(pedido.pedido_parcelas) ? pedido.pedido_parcelas : [];
+          return parcelas.some((parcela) => parcela.status === 'pago') || pedido.status === 'concluido';
+        });
         if (!pagos.length) {
           contasPagasArea.innerHTML = '<div class="empty">Nenhuma conta paga no momento.</div>';
           return;
@@ -1920,11 +1941,16 @@
           <div class="store-card" style="margin-bottom:12px;">
             <h3>Pedido #${String(pedido.id).slice(0, 8)}</h3>
             <p class="muted">Cliente: ${pedido.cliente_nome || 'Não informado'}</p>
-            <p class="muted">Total pago: R$ ${Number(pedido.total).toFixed(2)}</p>
+            <p class="muted">Total pago: R$ ${Number(pedido.pedido_parcelas?.filter((parcela) => parcela.status === 'pago').reduce((sum, parcela) => sum + Number(parcela.valor || 0), 0) || pedido.total).toFixed(2)}</p>
             <p class="muted">Pagamento: ${pedido.forma_pagamento || 'WhatsApp'} • ${pedido.parcelas || 1} parcela(s)</p>
             <p class="muted">Pedido criado em: ${formatarData(pedido.created_at)}</p>
             ${renderParcelasPedido(pedido)}
-            ${pedido.status === 'concluido' ? `<div class="row" style="margin-top:8px; justify-content:flex-end;"><button class="btn-secondary" type="button" onclick="window.downloadPdf('${pedido.id}', 'pagamento')">Baixar comprovante em PDF</button></div>` : ''}
+            ${pedido.status === 'concluido' ? `
+              <div class="row" style="margin-top:8px; justify-content:flex-end; gap:8px; flex-wrap:wrap;">
+                <button class="btn-secondary" type="button" onclick="window.downloadPdf('${pedido.id}', 'pagamento')">Baixar comprovante em PDF</button>
+                ${pedido.forma_pagamento === 'A prazo' ? `<button class="btn-secondary" type="button" onclick="window.downloadPdf('${pedido.id}', 'parcelas')">Baixar boletos</button>` : ''}
+              </div>
+            ` : ''}
           </div>
         `).join('');
       }

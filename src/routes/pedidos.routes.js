@@ -3,8 +3,8 @@ const { autenticar } = require('../middleware/auth');
 const { supabaseAdmin } = require('../config/supabaseClient');
 const { montarLinkWhatsapp } = require('../services/whatsapp.service');
 const { notificarUsuario } = require('../services/push.service');
-const { montarPayloadAtualizacaoStatus } = require('../services/pedido.service');
-const { gerarPdfPagamento } = require('../services/pdf.service');
+const { montarPayloadAtualizacaoStatus, gerarDadosBoletoParcela } = require('../services/pedido.service');
+const { gerarPdfPagamento, gerarPdfBoleto } = require('../services/pdf.service');
 
 const router = express.Router();
 
@@ -118,9 +118,10 @@ router.patch('/:id/status', autenticar, async (req, res) => {
           else acc += base;
           inserts.push({
             pedido_id: req.params.id,
-            parcela_num: i,
+            numero: i,
             valor,
-            status: 'pendente'
+            status: 'pendente',
+            ...gerarDadosBoletoParcela({ pedidoId: req.params.id, numero: i, valor })
           });
         }
 
@@ -153,13 +154,14 @@ router.patch('/:id/parcela/:parcelaId', autenticar, async (req, res) => {
     return res.status(400).json({ erro: 'Status da parcela inválido.' });
   }
 
+  const pagoEmIso = status === 'pago' ? (pago_em ? new Date(pago_em).toISOString() : new Date().toISOString()) : null;
   const payload = {
     status,
     forma_pagamento: forma_pagamento || null,
-    pago_em: status === 'pago' ? (pago_em ? new Date(pago_em).toISOString() : new Date().toISOString()) : null
+    pago_em: pagoEmIso
   };
 
-  const { data, error } = await req.supabase
+  const { data: parcelaAtualizada, error } = await req.supabase
     .from('pedido_parcelas')
     .update(payload)
     .eq('id', req.params.parcelaId)
@@ -168,7 +170,18 @@ router.patch('/:id/parcela/:parcelaId', autenticar, async (req, res) => {
     .single();
 
   if (error) return res.status(400).json({ erro: error.message });
-  res.json(data);
+
+  if (status === 'pago') {
+    await supabaseAdmin.from('pedido_parcela_pagamentos').insert({
+      pedido_parcela_id: req.params.parcelaId,
+      forma_pagamento: forma_pagamento || 'Dinheiro',
+      valor: parcelaAtualizada.valor || 0,
+      pago_em: pagoEmIso,
+      observacao: `Baixa registrada via app para parcela ${parcelaAtualizada.numero}`
+    });
+  }
+
+  res.json(parcelaAtualizada);
 });
 
 // Lista pedidos - o próprio RLS decide se retorna os pedidos como cliente
@@ -189,7 +202,7 @@ router.get('/', autenticar, async (req, res) => {
 
     const { data, error } = await supabaseAdmin
       .from('pedidos')
-      .select('*, pedido_itens(*), pedido_parcelas(*)')
+      .select('*, pedido_itens(*), pedido_parcelas(*), lojas(nome, documento, tipo_documento, whatsapp, endereco, cidade, estado)')
       .in('loja_id', lojaIds)
       .order('created_at', { ascending: false });
 
@@ -199,7 +212,7 @@ router.get('/', autenticar, async (req, res) => {
 
   const { data, error } = await req.supabase
     .from('pedidos')
-    .select('*, pedido_itens(*), pedido_parcelas(*)')
+    .select('*, pedido_itens(*), pedido_parcelas(*), lojas(nome, documento, tipo_documento, whatsapp, endereco, cidade, estado)')
     .order('created_at', { ascending: false });
 
   if (error) return res.status(400).json({ erro: error.message });
@@ -231,7 +244,7 @@ router.get('/:id/pdf-pagamento', autenticar, async (req, res) => {
 router.get('/:id/pdf-parcelas', autenticar, async (req, res) => {
   const { data: pedido, error: errorPedido } = await req.supabase
     .from('pedidos')
-    .select('*, pedido_parcelas(*)')
+    .select('*, pedido_parcelas(*), lojas(nome, documento, tipo_documento, whatsapp, endereco, cidade, estado)')
     .eq('id', req.params.id)
     .single();
 
@@ -239,14 +252,45 @@ router.get('/:id/pdf-parcelas', autenticar, async (req, res) => {
     return res.status(404).json({ erro: 'Pedido não encontrado.' });
   }
 
-  if (!pedido.status || pedido.status !== 'concluido') {
-    return res.status(400).json({ erro: 'Só é possível baixar o comprovante de pedidos já pagos.' });
+  if (pedido.status === 'cancelado') {
+    return res.status(400).json({ erro: 'Não é possível baixar boletos de pedidos cancelados.' });
   }
 
   const parcelas = Array.isArray(pedido.pedido_parcelas) ? pedido.pedido_parcelas : [];
-  const pdfBuffer = gerarPdfPagamento({ pedido, parcelas });
+  if (!parcelas.length) {
+    return res.status(400).json({ erro: 'Pedido sem parcelas para gerar boletos.' });
+  }
+
+  const pdfBuffer = gerarPdfBoleto({ pedido, loja: pedido.lojas || {}, parcelas });
   res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename="parcelas-${pedido.id}.pdf"`);
+  res.setHeader('Content-Disposition', `attachment; filename="boleto-parcelas-${pedido.id}.pdf"`);
+  res.send(pdfBuffer);
+});
+
+router.get('/:id/pdf-boleto/:parcelaId', autenticar, async (req, res) => {
+  const { data: pedido, error: errorPedido } = await req.supabase
+    .from('pedidos')
+    .select('*, pedido_parcelas(*), lojas(nome, documento, tipo_documento, whatsapp, endereco, cidade, estado)')
+    .eq('id', req.params.id)
+    .single();
+
+  if (errorPedido || !pedido) {
+    return res.status(404).json({ erro: 'Pedido não encontrado.' });
+  }
+
+  if (pedido.status === 'cancelado') {
+    return res.status(400).json({ erro: 'Não é possível baixar boleto de pedidos cancelados.' });
+  }
+
+  const parcelas = Array.isArray(pedido.pedido_parcelas) ? pedido.pedido_parcelas : [];
+  const parcela = parcelas.find((item) => item.id === req.params.parcelaId);
+  if (!parcela) {
+    return res.status(404).json({ erro: 'Parcela não encontrada.' });
+  }
+
+  const pdfBuffer = gerarPdfBoleto({ pedido, loja: pedido.lojas || {}, parcela });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="boleto-parcela-${parcela.numero || parcela.id}.pdf"`);
   res.send(pdfBuffer);
 });
 
