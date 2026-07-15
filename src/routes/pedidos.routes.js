@@ -256,6 +256,13 @@ router.get('/:id/pdf-parcelas', autenticar, async (req, res) => {
     return res.status(404).json({ erro: 'Pedido não encontrado.' });
   }
 
+  // Validação RLS: apenas cliente ou dono da loja podem baixar
+  const isCliente = pedido.cliente_id === req.usuario.id;
+  const isDono = pedido.lojas?.dono_id === req.usuario.id;
+  if (!isCliente && !isDono) {
+    return res.status(403).json({ erro: 'Não autorizado a acessar este PDF.' });
+  }
+
   if (pedido.status === 'cancelado') {
     return res.status(400).json({ erro: 'Não é possível baixar boletos de pedidos cancelados.' });
   }
@@ -280,6 +287,13 @@ router.get('/:id/pdf-boleto/:parcelaId', autenticar, async (req, res) => {
 
   if (errorPedido || !pedido) {
     return res.status(404).json({ erro: 'Pedido não encontrado.' });
+  }
+
+  // Validação RLS: apenas cliente ou dono da loja podem baixar
+  const isCliente = pedido.cliente_id === req.usuario.id;
+  const isDono = pedido.lojas?.dono_id === req.usuario.id;
+  if (!isCliente && !isDono) {
+    return res.status(403).json({ erro: 'Não autorizado a acessar este PDF.' });
   }
 
   if (pedido.status === 'cancelado') {
