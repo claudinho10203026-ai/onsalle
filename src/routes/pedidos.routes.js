@@ -4,6 +4,7 @@ const { supabaseAdmin } = require('../config/supabaseClient');
 const { montarLinkWhatsapp } = require('../services/whatsapp.service');
 const { notificarUsuario } = require('../services/push.service');
 const { montarPayloadAtualizacaoStatus } = require('../services/pedido.service');
+const { gerarPdfPagamento } = require('../services/pdf.service');
 
 const router = express.Router();
 
@@ -137,6 +138,50 @@ router.get('/', autenticar, async (req, res) => {
 
   if (error) return res.status(400).json({ erro: error.message });
   res.json(data);
+});
+
+router.get('/:id/pdf-pagamento', autenticar, async (req, res) => {
+  const { data: pedido, error: errorPedido } = await req.supabase
+    .from('pedidos')
+    .select('*, pedido_parcelas(*)')
+    .eq('id', req.params.id)
+    .single();
+
+  if (errorPedido || !pedido) {
+    return res.status(404).json({ erro: 'Pedido não encontrado.' });
+  }
+
+  const parcelas = Array.isArray(pedido.pedido_parcelas) ? pedido.pedido_parcelas : [];
+  if (!pedido.status || pedido.status !== 'concluido') {
+    return res.status(400).json({ erro: 'Só é possível baixar o comprovante de pedidos já pagos.' });
+  }
+
+  const pdfBuffer = gerarPdfPagamento({ pedido, parcelas });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="pagamento-${pedido.id}.pdf"`);
+  res.send(pdfBuffer);
+});
+
+router.get('/:id/pdf-parcelas', autenticar, async (req, res) => {
+  const { data: pedido, error: errorPedido } = await req.supabase
+    .from('pedidos')
+    .select('*, pedido_parcelas(*)')
+    .eq('id', req.params.id)
+    .single();
+
+  if (errorPedido || !pedido) {
+    return res.status(404).json({ erro: 'Pedido não encontrado.' });
+  }
+
+  if (!pedido.status || pedido.status !== 'concluido') {
+    return res.status(400).json({ erro: 'Só é possível baixar o comprovante de pedidos já pagos.' });
+  }
+
+  const parcelas = Array.isArray(pedido.pedido_parcelas) ? pedido.pedido_parcelas : [];
+  const pdfBuffer = gerarPdfPagamento({ pedido, parcelas });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="parcelas-${pedido.id}.pdf"`);
+  res.send(pdfBuffer);
 });
 
 module.exports = router;

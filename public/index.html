@@ -1739,6 +1739,7 @@
             <p class="muted">Total: R$ ${Number(pedido.total).toFixed(2)}</p>
             ${pedido.pedido_itens?.length ? `<ul style="margin-top:8px;">${pedido.pedido_itens.map((item) => `<li>${item.quantidade}x ${item.nome_produto} — R$ ${Number(item.preco_unitario).toFixed(2)}</li>`).join('')}</ul>` : ''}
             ${renderParcelasPedido(pedido)}
+            ${pedido.status === 'concluido' ? `<div class="row" style="margin-top:8px; justify-content:flex-end;"><a class="btn-secondary" href="/pedidos/${pedido.id}/pdf-pagamento" target="_blank" download>Baixar comprovante em PDF</a></div>` : ''}
           </div>
         `).join('');
         await carregarDashboard();
@@ -1852,6 +1853,7 @@
             <p class="muted">Pagamento: ${pedido.forma_pagamento || 'WhatsApp'} • ${pedido.parcelas || 1} parcela(s)</p>
             <p class="muted">Pedido criado em: ${formatarData(pedido.created_at)}</p>
             ${renderParcelasPedido(pedido)}
+            ${pedido.status === 'concluido' ? `<div class="row" style="margin-top:8px; justify-content:flex-end;"><a class="btn-secondary" href="/pedidos/${pedido.id}/pdf-pagamento" target="_blank" download>Baixar comprovante em PDF</a></div>` : ''}
           </div>
         `).join('');
       }
