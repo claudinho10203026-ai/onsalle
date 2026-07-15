@@ -1647,21 +1647,10 @@
             <h3>Itens no carrinho</h3>
             <ul>${carrinho.carrinho_itens.map((item) => `<li>${item.quantidade}x ${item.nome_produto} — R$ ${(Number(item.preco_unitario) * item.quantidade).toFixed(2)}</li>`).join('')}</ul>
             <p style="margin-top:12px;"><strong>Total:</strong> R$ ${total.toFixed(2)}</p>
-            <div class="field" style="margin-top:16px;">
-              <label>Forma de pagamento</label>
-              <select id="checkoutFormaPagamento">
-                <option value="WhatsApp">WhatsApp</option>
-                <option value="Dinheiro">Dinheiro</option>
-                <option value="Pix">Pix</option>
-                <option value="Cartão">Cartão</option>
-                <option value="A prazo">A prazo</option>
-              </select>
+            <div class="card" style="margin-top:12px; background:var(--sb-accent-dim); border-color:var(--sb-border);">
+              <p class="muted" style="margin:0;"><strong>O pedido será enviado direto para o WhatsApp da loja.</strong> A forma de pagamento e a baixa serão registradas pelo vendedor quando o pedido for recebido.</p>
             </div>
-            <div class="field" style="margin-top:12px;">
-              <label>Número de parcelas</label>
-              <input type="number" id="checkoutParcelas" min="1" value="1" style="width:80px;" />
-            </div>
-            <div class="row">
+            <div class="row" style="margin-top:12px;">
               <button class="btn-primary" onclick="window.finalizarPedido()"><i class="fas fa-check-circle"></i> Finalizar pedido</button>
             </div>
           </div>
@@ -1757,13 +1746,23 @@
 
       window.atualizarStatusPedido = async (pedidoId, status) => {
         if (!state.usuario || !state.token) return alert('Faça login para atualizar pedidos.');
+
+        const formaPagamento = window.prompt('Forma de pagamento da baixa (Dinheiro, Pix, Cartão, WhatsApp)', 'Dinheiro');
+        const dataBaixa = window.prompt('Data da baixa (AAAA-MM-DD, deixe vazio para hoje)', new Date().toISOString().split('T')[0]);
+
+        const payload = { status };
+        if (status === 'concluido') {
+          payload.forma_pagamento = formaPagamento || 'Dinheiro';
+          payload.pago_em = dataBaixa ? `${dataBaixa}T12:00:00` : new Date().toISOString();
+        }
+
         const response = await fetch(`/pedidos/${pedidoId}/status`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${state.token}`
           },
-          body: JSON.stringify({ status })
+          body: JSON.stringify(payload)
         });
         const result = await response.json();
         if (!response.ok) return alert(result.erro || 'Não foi possível atualizar o pedido.');
@@ -2185,13 +2184,10 @@
           window.location.hash = 'perfil';
           return alert('Seu telefone precisa estar presente no perfil para finalizar o pedido.');
         }
-        const formaPagamento = document.getElementById('checkoutFormaPagamento')?.value || 'WhatsApp';
-        let parcelas = parseInt(document.getElementById('checkoutParcelas')?.value, 10) || 1;
-        if (parcelas < 1) parcelas = 1;
         const response = await fetch('/pedidos/finalizar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
-          body: JSON.stringify({ carrinho_id: state.carrinhoId, forma_pagamento: formaPagamento, parcelas })
+          body: JSON.stringify({ carrinho_id: state.carrinhoId, forma_pagamento: 'WhatsApp', parcelas: 1 })
         });
         const result = await response.json();
         if (!response.ok) return alert(result.erro || 'Não foi possível finalizar o pedido');

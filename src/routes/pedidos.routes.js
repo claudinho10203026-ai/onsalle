@@ -3,6 +3,7 @@ const { autenticar } = require('../middleware/auth');
 const { supabaseAdmin } = require('../config/supabaseClient');
 const { montarLinkWhatsapp } = require('../services/whatsapp.service');
 const { notificarUsuario } = require('../services/push.service');
+const { montarPayloadAtualizacaoStatus } = require('../services/pedido.service');
 
 const router = express.Router();
 
@@ -63,20 +64,41 @@ router.post('/finalizar', autenticar, async (req, res) => {
 });
 
 router.patch('/:id/status', autenticar, async (req, res) => {
-  const { status } = req.body;
+  const { status, forma_pagamento, pago_em } = req.body;
   const validStatus = ['pendente', 'confirmado', 'concluido', 'cancelado'];
   if (!validStatus.includes(status)) {
     return res.status(400).json({ erro: 'Status de pedido inválido.' });
   }
 
+  const payload = montarPayloadAtualizacaoStatus({
+    status,
+    formaPagamento: forma_pagamento
+  });
+
   const { data, error } = await req.supabase
     .from('pedidos')
-    .update({ status })
+    .update(payload)
     .eq('id', req.params.id)
     .select()
     .single();
 
   if (error) return res.status(400).json({ erro: error.message });
+
+  if (status === 'concluido') {
+    const { error: errorParcelas } = await req.supabase
+      .from('pedido_parcelas')
+      .update({
+        status: 'pago',
+        forma_pagamento: payload.forma_pagamento || null,
+        pago_em: pago_em ? new Date(pago_em).toISOString() : new Date().toISOString()
+      })
+      .eq('pedido_id', req.params.id);
+
+    if (errorParcelas) {
+      return res.status(400).json({ erro: `Pedido atualizado, mas não foi possível registrar a baixa das parcelas: ${errorParcelas.message}` });
+    }
+  }
+
   res.json(data);
 });
 
