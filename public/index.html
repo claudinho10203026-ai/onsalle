@@ -1699,6 +1699,16 @@
               <label>Número de parcelas</label>
               <input type="number" min="1" id="pedidoParcelas-${pedido.id}" value="${pedido.parcelas || 1}" />
             </div>
+            <div class="field">
+              <label>Intervalo de vencimento (dias)</label>
+              <select id="pedidoIntervalo-${pedido.id}">
+                <option value="30">30 dias</option>
+                <option value="60">60 dias</option>
+                <option value="90">90 dias</option>
+                <option value="120">120 dias</option>
+                <option value="150">150 dias</option>
+              </select>
+            </div>
             <div class="row" style="margin-top:8px; justify-content:flex-end;">
               <button class="btn-primary" type="button" onclick="window.atualizarStatusPedido('${pedido.id}', 'concluido')">Marcar como pago</button>
             </div>
@@ -1798,7 +1808,12 @@
         if (status === 'concluido') {
           payload.forma_pagamento = formaPagamento;
           payload.pago_em = dataBaixa;
-          if (formaPagamento === 'A prazo' && parcelasVal && parcelasVal > 0) payload.parcelas = parcelasVal;
+          if (formaPagamento === 'A prazo' && parcelasVal && parcelasVal > 0) {
+            payload.parcelas = parcelasVal;
+            const intervaloInput = document.getElementById(`pedidoIntervalo-${pedidoId}`);
+            const intervaloVal = Number(intervaloInput?.value || 30);
+            payload.intervalo_dias = [30, 60, 90, 120, 150].includes(intervaloVal) ? intervaloVal : 30;
+          }
         }
 
         const response = await fetch(`/pedidos/${pedidoId}/status`, {

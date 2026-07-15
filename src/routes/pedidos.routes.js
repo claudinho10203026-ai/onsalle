@@ -65,7 +65,7 @@ router.post('/finalizar', autenticar, async (req, res) => {
 });
 
 router.patch('/:id/status', autenticar, async (req, res) => {
-  const { status, forma_pagamento, pago_em, parcelas } = req.body;
+  const { status, forma_pagamento, pago_em, parcelas, intervalo_dias } = req.body;
   const validStatus = ['pendente', 'confirmado', 'concluido', 'cancelado'];
   if (!validStatus.includes(status)) {
     return res.status(400).json({ erro: 'Status de pedido inválido.' });
@@ -109,6 +109,7 @@ router.patch('/:id/status', autenticar, async (req, res) => {
 
         const total = Number(pedidoRow.total) || 0;
         const n = Number(parcelas);
+        const intervalo = Number(intervalo_dias) || 30;
         const base = Math.floor((total / n) * 100) / 100;
         let acc = 0;
         const inserts = [];
@@ -121,7 +122,7 @@ router.patch('/:id/status', autenticar, async (req, res) => {
             numero: i,
             valor,
             status: 'pendente',
-            ...gerarDadosBoletoParcela({ pedidoId: req.params.id, numero: i, valor })
+            ...gerarDadosBoletoParcela({ pedidoId: req.params.id, numero: i, valor, diasPrazo: intervalo })
           });
         }
 
@@ -190,6 +191,7 @@ router.get('/', autenticar, async (req, res) => {
   const ownerView = req.query.owner_view === 'true';
 
   if (ownerView) {
+    // Modo vendedor: retorna apenas pedidos das lojas que o usuário possui
     const { data: lojas, error: lojasErr } = await supabaseAdmin
       .from('lojas')
       .select('id')
@@ -210,9 +212,11 @@ router.get('/', autenticar, async (req, res) => {
     return res.json(data);
   }
 
+  // Modo cliente: retorna apenas pedidos que o usuário criou (não como vendedor)
   const { data, error } = await req.supabase
     .from('pedidos')
     .select('*, pedido_itens(*), pedido_parcelas(*), lojas(nome, documento, tipo_documento, whatsapp, endereco, cidade, estado)')
+    .eq('cliente_id', req.usuario.id)
     .order('created_at', { ascending: false });
 
   if (error) return res.status(400).json({ erro: error.message });
