@@ -65,7 +65,7 @@ router.post('/finalizar', autenticar, async (req, res) => {
 });
 
 router.patch('/:id/status', autenticar, async (req, res) => {
-  const { status, forma_pagamento, pago_em } = req.body;
+  const { status, forma_pagamento, pago_em, parcelas } = req.body;
   const validStatus = ['pendente', 'confirmado', 'concluido', 'cancelado'];
   if (!validStatus.includes(status)) {
     return res.status(400).json({ erro: 'Status de pedido inválido.' });
@@ -73,7 +73,8 @@ router.patch('/:id/status', autenticar, async (req, res) => {
 
   const payload = montarPayloadAtualizacaoStatus({
     status,
-    formaPagamento: forma_pagamento
+    formaPagamento: forma_pagamento,
+    parcelas
   });
 
   const { data, error } = await req.supabase
@@ -86,17 +87,59 @@ router.patch('/:id/status', autenticar, async (req, res) => {
   if (error) return res.status(400).json({ erro: error.message });
 
   if (status === 'concluido') {
-    const { error: errorParcelas } = await req.supabase
-      .from('pedido_parcelas')
-      .update({
-        status: 'pago',
-        forma_pagamento: payload.forma_pagamento || null,
-        pago_em: pago_em ? new Date(pago_em).toISOString() : new Date().toISOString()
-      })
-      .eq('pedido_id', req.params.id);
+    // Se pagamento for a prazo e foi informada a quantidade de parcelas,
+    // criamos as parcelas (somente se ainda não existirem) e não damos
+    // baixa automática. Caso contrário, marcamos todas como pagas.
+    if (forma_pagamento === 'A prazo' && parcelas && Number(parcelas) > 0) {
+      const { data: existentes, error: errExistentes } = await req.supabase
+        .from('pedido_parcelas')
+        .select('*')
+        .eq('pedido_id', req.params.id);
 
-    if (errorParcelas) {
-      return res.status(400).json({ erro: `Pedido atualizado, mas não foi possível registrar a baixa das parcelas: ${errorParcelas.message}` });
+      if (errExistentes) return res.status(400).json({ erro: errExistentes.message });
+
+      if (!existentes || existentes.length === 0) {
+        const { data: pedidoRow, error: errPedido } = await supabaseAdmin
+          .from('pedidos')
+          .select('total')
+          .eq('id', req.params.id)
+          .single();
+
+        if (errPedido) return res.status(400).json({ erro: errPedido.message });
+
+        const total = Number(pedidoRow.total) || 0;
+        const n = Number(parcelas);
+        const base = Math.floor((total / n) * 100) / 100;
+        let acc = 0;
+        const inserts = [];
+        for (let i = 1; i <= n; i++) {
+          let valor = base;
+          if (i === n) valor = +(total - acc).toFixed(2);
+          else acc += base;
+          inserts.push({
+            pedido_id: req.params.id,
+            parcela_num: i,
+            valor,
+            status: 'pendente'
+          });
+        }
+
+        const { error: insertErr } = await supabaseAdmin.from('pedido_parcelas').insert(inserts);
+        if (insertErr) return res.status(400).json({ erro: insertErr.message });
+      }
+    } else {
+      const { error: errorParcelas } = await req.supabase
+        .from('pedido_parcelas')
+        .update({
+          status: 'pago',
+          forma_pagamento: payload.forma_pagamento || null,
+          pago_em: pago_em ? new Date(pago_em).toISOString() : new Date().toISOString()
+        })
+        .eq('pedido_id', req.params.id);
+
+      if (errorParcelas) {
+        return res.status(400).json({ erro: `Pedido atualizado, mas não foi possível registrar a baixa das parcelas: ${errorParcelas.message}` });
+      }
     }
   }
 
@@ -131,6 +174,29 @@ router.patch('/:id/parcela/:parcelaId', autenticar, async (req, res) => {
 // Lista pedidos - o próprio RLS decide se retorna os pedidos como cliente
 // ou como dono de loja
 router.get('/', autenticar, async (req, res) => {
+  const ownerView = req.query.owner_view === 'true';
+
+  if (ownerView) {
+    const { data: lojas, error: lojasErr } = await supabaseAdmin
+      .from('lojas')
+      .select('id')
+      .eq('dono_id', req.usuario.id);
+
+    if (lojasErr) return res.status(400).json({ erro: lojasErr.message });
+
+    const lojaIds = (lojas || []).map(l => l.id);
+    if (lojaIds.length === 0) return res.json([]);
+
+    const { data, error } = await supabaseAdmin
+      .from('pedidos')
+      .select('*, pedido_itens(*), pedido_parcelas(*)')
+      .in('loja_id', lojaIds)
+      .order('created_at', { ascending: false });
+
+    if (error) return res.status(400).json({ erro: error.message });
+    return res.json(data);
+  }
+
   const { data, error } = await req.supabase
     .from('pedidos')
     .select('*, pedido_itens(*), pedido_parcelas(*)')

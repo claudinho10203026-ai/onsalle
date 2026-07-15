@@ -1688,11 +1688,16 @@
                 <option value="Pix">Pix</option>
                 <option value="Cartão">Cartão</option>
                 <option value="WhatsApp">WhatsApp</option>
+                <option value="A prazo">A prazo</option>
               </select>
             </div>
             <div class="field">
               <label>Data da baixa</label>
               <input type="date" id="pedidoData-${pedido.id}" value="${hoje}" />
+            </div>
+            <div class="field">
+              <label>Número de parcelas</label>
+              <input type="number" min="1" id="pedidoParcelas-${pedido.id}" value="${pedido.parcelas || 1}" />
             </div>
             <div class="row" style="margin-top:8px; justify-content:flex-end;">
               <button class="btn-primary" type="button" onclick="window.atualizarStatusPedido('${pedido.id}', 'concluido')">Marcar como pago</button>
@@ -1749,7 +1754,9 @@
           pedidosArea.innerHTML = '<div class="empty">Faça login para ver pedidos.</div>';
           return;
         }
-        const response = await fetch('/pedidos', { headers: { Authorization: `Bearer ${state.token}` } });
+        let url = '/pedidos';
+        if (Array.isArray(state.minhasLojas) && state.minhasLojas.length > 0) url += '?owner_view=true';
+        const response = await fetch(url, { headers: { Authorization: `Bearer ${state.token}` } });
         const pedidos = await response.json();
         if (!response.ok) {
           state.pedidos = [];
@@ -1777,7 +1784,7 @@
             ${pedido.pedido_itens?.length ? `<ul style="margin-top:8px;">${pedido.pedido_itens.map((item) => `<li>${item.quantidade}x ${item.nome_produto} — R$ ${Number(item.preco_unitario).toFixed(2)}</li>`).join('')}</ul>` : ''}
             ${renderBaixaPedido(pedido)}
             ${renderParcelasPedido(pedido)}
-            ${pedido.status === 'concluido' ? `<div class="row" style="margin-top:8px; justify-content:flex-end;"><a class="btn-secondary" href="/pedidos/${pedido.id}/pdf-pagamento" target="_blank" download>Baixar comprovante em PDF</a></div>` : ''}
+            ${pedido.status === 'concluido' ? `<div class="row" style="margin-top:8px; justify-content:flex-end;"><button class="btn-secondary" type="button" onclick="window.downloadPdf('${pedido.id}', 'pagamento')">Baixar comprovante em PDF</button></div>` : ''}
           </div>
         `).join('');
         await carregarDashboard();
@@ -1789,12 +1796,15 @@
         const select = document.getElementById(`pedidoMetodo-${pedidoId}`);
         const dataInput = document.getElementById(`pedidoData-${pedidoId}`);
         const formaPagamento = (select?.value || '').trim() || 'Dinheiro';
+        const parcelasInput = document.getElementById(`pedidoParcelas-${pedidoId}`);
+        const parcelasVal = parcelasInput ? Number(parcelasInput.value) : undefined;
         const dataBaixa = dataInput?.value ? `${dataInput.value}T12:00:00` : new Date().toISOString();
 
         const payload = { status };
         if (status === 'concluido') {
           payload.forma_pagamento = formaPagamento;
           payload.pago_em = dataBaixa;
+          if (formaPagamento === 'A prazo' && parcelasVal && parcelasVal > 0) payload.parcelas = parcelasVal;
         }
 
         const response = await fetch(`/pedidos/${pedidoId}/status`, {
@@ -1840,6 +1850,26 @@
         if (window.location.hash.replace('#', '') === 'contas-a-receber') await carregarContasAReceber();
         if (window.location.hash.replace('#', '') === 'contas-pagas') await carregarContasPagas();
         alert('Parcela marcada como paga.');
+      };
+
+      window.downloadPdf = async (pedidoId, tipo = 'pagamento') => {
+        if (!state.usuario || !state.token) return alert('Faça login para baixar o PDF.');
+        const url = tipo === 'parcelas' ? `/pedidos/${pedidoId}/pdf-parcelas` : `/pedidos/${pedidoId}/pdf-pagamento`;
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${state.token}` } });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          return alert(err.erro || 'Não foi possível baixar o PDF.');
+        }
+        const blob = await res.blob();
+        const filename = `${tipo === 'parcelas' ? 'parcelas' : 'pagamento'}-${pedidoId}.pdf`;
+        const urlBlob = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = urlBlob;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(urlBlob);
       };
 
       async function carregarContasAReceber() {
@@ -1894,7 +1924,7 @@
             <p class="muted">Pagamento: ${pedido.forma_pagamento || 'WhatsApp'} • ${pedido.parcelas || 1} parcela(s)</p>
             <p class="muted">Pedido criado em: ${formatarData(pedido.created_at)}</p>
             ${renderParcelasPedido(pedido)}
-            ${pedido.status === 'concluido' ? `<div class="row" style="margin-top:8px; justify-content:flex-end;"><a class="btn-secondary" href="/pedidos/${pedido.id}/pdf-pagamento" target="_blank" download>Baixar comprovante em PDF</a></div>` : ''}
+            ${pedido.status === 'concluido' ? `<div class="row" style="margin-top:8px; justify-content:flex-end;"><button class="btn-secondary" type="button" onclick="window.downloadPdf('${pedido.id}', 'pagamento')">Baixar comprovante em PDF</button></div>` : ''}
           </div>
         `).join('');
       }
