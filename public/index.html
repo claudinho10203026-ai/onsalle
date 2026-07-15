@@ -218,7 +218,11 @@
         .field-row { flex-direction: column; gap: 0; }
         .field-row .field { min-width: 0; }
         .qty-row { width: 100%; }
-        .row button { flex: 1 1 auto; justify-content: center; }
+        .row > button,
+        .row > a,
+        .row > .btn-primary,
+        .row > .btn-secondary,
+        .row > .btn-danger { flex: 1 1 100%; justify-content: center; }
       }
 
       /* -----------------------------------------------------------------
@@ -240,9 +244,10 @@
         box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
         padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
       }
-      .bottom-nav-list { display: flex; align-items: stretch; justify-content: space-between; }
+      .bottom-nav-list { display: flex; align-items: stretch; justify-content: space-between; gap: 4px; flex-wrap: wrap; }
       .bottom-nav .nav-item {
-        flex: 1 1 0;
+        flex: 1 1 calc(100% / 7 - 4px);
+        min-width: 72px;
         flex-direction: column;
         align-items: center;
         justify-content: center;
@@ -301,6 +306,9 @@
           <div class="sb-group-list">
             <a class="nav-item" href="#minhas-lojas" data-page="minhas-lojas"><i class="fas fa-shop"></i><span>Minhas lojas</span></a>
             <a class="nav-item" href="#cadastrar-produto" data-page="cadastrar-produto"><i class="fas fa-box-open"></i><span>Cadastrar produto</span></a>
+            <a class="nav-item" href="#contas-a-receber" data-page="contas-a-receber"><i class="fas fa-hand-holding-dollar"></i><span>Contas a receber</span></a>
+            <a class="nav-item" href="#contas-pagas" data-page="contas-pagas"><i class="fas fa-money-check-dollar"></i><span>Contas pagas</span></a>
+            <a class="nav-item" href="#estoque" data-page="estoque"><i class="fas fa-boxes-stacked"></i><span>Estoque</span></a>
           </div>
         </div>
 
@@ -662,6 +670,7 @@
         <a class="nav-item" href="#lojas" data-page="lojas"><i class="fas fa-map-marked-alt"></i><span>Lojas</span></a>
         <a class="nav-item" href="#vitrine" data-page="vitrine"><i class="fas fa-store"></i><span>Vitrine</span></a>
         <a class="nav-item" href="#pedidos" data-page="pedidos"><i class="fas fa-receipt"></i><span>Pedidos</span></a>
+        <a class="nav-item" href="#contas-a-receber" data-page="contas-a-receber"><i class="fas fa-hand-holding-dollar"></i><span>Financeiro</span></a>
         <a class="nav-item" href="#carrinho" data-page="carrinho"><i class="fas fa-shopping-cart"></i><span>Carrinho</span></a>
         <a class="nav-item" href="#perfil" data-page="perfil"><i class="fas fa-user-circle"></i><span>Perfil</span></a>
       </div>
