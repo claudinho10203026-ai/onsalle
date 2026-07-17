@@ -211,7 +211,15 @@
            o botão "Mais" (barra inferior) ou o ícone de menu são tocados. */
         .sidebar { transform: translateX(-100%); transition: transform var(--sb-transition); max-width: 85vw; }
         .sidebar.open { transform: translateX(0); }
-        .sidebar-overlay { display: block; }
+        /* BUG CRÍTICO CORRIGIDO: estava ".sidebar-overlay { display: block; }"
+           (sem ".active"), então esse fundo ficava cobrindo a tela inteira
+           OU TEMPO TODO no celular - invisível (opacity:0 por padrão), mas
+           "position:fixed; inset:0; z-index:999" continuava bloqueando
+           TODO toque na página, mesmo com o menu fechado. Por isso nada
+           funcionava no celular. Agora só vira display:block quando o
+           menu é aberto (classe .active), que é quando ele deve mesmo
+           bloquear o resto da tela. */
+        .sidebar-overlay.active { display: block; }
         .main-content { margin-left: 0; padding: 16px 16px 30px; }
         .sidebar.collapsed + .main-content { margin-left: 0; }
         .mobile-only { display: inline-flex; }
