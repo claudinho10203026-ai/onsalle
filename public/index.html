@@ -1,0 +1,2435 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vitrine Local</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      :root {
+        --sb-bg: #f8fafc;
+        --sb-surface: #ffffff;
+        --sb-elevated: #f1f5f9;
+        --sb-border: #e2e8f0;
+        --sb-text: #1e293b;
+        --sb-text-secondary: #334155;
+        --sb-text-muted: #64748b;
+        --sb-accent: #2563eb;
+        --sb-accent-dim: #eff6ff;
+        --sb-accent-hover: #dbeafe;
+        --sb-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+        --sb-radius: 12px;
+        --sb-font: 'Inter', system-ui, -apple-system, sans-serif;
+        --sb-sidebar-width: 280px;
+        --sb-sidebar-collapsed: 72px;
+        --sb-transition: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      [data-theme="dark"] {
+        --sb-bg: #0b1120;
+        --sb-surface: #111c2e;
+        --sb-elevated: #1e2d45;
+        --sb-border: rgba(255, 255, 255, 0.06);
+        --sb-text: #f0f4ff;
+        --sb-text-secondary: #b0c4e8;
+        --sb-text-muted: #7a8aa8;
+        --sb-accent: #3b82f6;
+        --sb-accent-dim: rgba(59, 130, 246, 0.15);
+        --sb-accent-hover: rgba(59, 130, 246, 0.25);
+        --sb-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+      }
+
+      html, body { overflow-x: hidden; }
+
+      body {
+        font-family: var(--sb-font);
+        background: var(--sb-bg);
+        color: var(--sb-text);
+        min-height: 100vh;
+      }
+
+      .sidebar-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+      .sidebar-overlay.active { opacity: 1; }
+
+      .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: var(--sb-sidebar-width);
+        background: var(--sb-surface);
+        border-right: 1px solid var(--sb-border);
+        color: var(--sb-text);
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        transition: width var(--sb-transition), transform var(--sb-transition), background var(--sb-transition);
+        box-shadow: var(--sb-shadow);
+        overflow: hidden;
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
+      }
+      .sidebar.collapsed { width: var(--sb-sidebar-collapsed); }
+      .sidebar.collapsed .sb-brand-title,
+      .sidebar.collapsed .sidebar-user,
+      .sidebar.collapsed .sb-group-btn span:not(.caret),
+      .sidebar.collapsed .nav-item span,
+      .sidebar.collapsed .sidebar-footer .btn-logout span,
+      .sidebar.collapsed .sb-toggle-label { opacity: 0; pointer-events: none; width: 0; overflow: hidden; }
+      .sidebar.collapsed .sb-brand-icon { margin-right: 0; }
+      .sidebar.collapsed .nav-item { justify-content: center; padding: 10px !important; }
+      .sidebar.collapsed .nav-item i { margin-right: 0; }
+      .sidebar.collapsed .sb-group-btn { justify-content: center; padding: 6px 0; }
+      .sidebar.collapsed .sb-group-btn .caret { display: none; }
+      .sidebar.collapsed .sidebar-footer .btn-logout { justify-content: center; padding: 10px !important; }
+      .sidebar.collapsed .sidebar-footer .btn-logout i { margin-right: 0; }
+
+      .sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 14px; border-bottom: 1px solid var(--sb-border); flex-shrink: 0; }
+      .sb-brand { display: flex; align-items: center; gap: 12px; overflow: hidden; }
+      .sb-brand-icon { width: 38px; height: 38px; background: linear-gradient(135deg, var(--sb-accent), #06b6d4); border-radius: var(--sb-radius); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; flex-shrink: 0; }
+      .sb-brand-title { display: flex; flex-direction: column; white-space: nowrap; overflow: hidden; }
+      .sb-brand-title h2 { font-size: 17px; font-weight: 700; color: var(--sb-text); letter-spacing: -0.3px; }
+      .sb-brand-title small { font-size: 10px; color: var(--sb-text-muted); }
+      .sb-toggle-btn { background: none; border: none; color: var(--sb-text-muted); font-size: 18px; cursor: pointer; padding: 6px 8px; border-radius: 8px; transition: background 0.2s; }
+      .sb-toggle-btn:hover { background: var(--sb-elevated); color: var(--sb-text); }
+
+      .sidebar-user { margin: 12px 16px 8px; padding: 14px 16px; background: var(--sb-elevated); border-radius: var(--sb-radius); border: 1px solid var(--sb-border); }
+      .sidebar-user .name { font-size: 14px; font-weight: 600; color: var(--sb-text); }
+      .sidebar-user .role { font-size: 11px; color: var(--sb-text-muted); margin-top: 2px; }
+      .sidebar-user .clinic { font-size: 11px; color: var(--sb-accent); margin-top: 4px; display: flex; align-items: center; gap: 6px; }
+
+      .sidebar-nav { flex: 1; padding: 8px 12px 8px; overflow-y: auto; }
+      .sb-group { margin-top: 4px; }
+      .sb-group + .sb-group { margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--sb-border); }
+      .sb-group-btn { width: 100%; display: flex; align-items: center; justify-content: space-between; background: transparent; border: 0; color: var(--sb-text-muted); font-size: 9px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; padding: 6px 10px; cursor: pointer; border-radius: 6px; }
+      .sb-group-btn:hover { color: var(--sb-accent); background: var(--sb-accent-dim); }
+      .sb-group-btn .caret { transition: transform 0.35s; font-size: 9px; }
+      .sb-group.open .sb-group-btn .caret { transform: rotate(90deg); color: var(--sb-accent); }
+      .sb-group-list { display: flex; flex-direction: column; gap: 2px; overflow: hidden; max-height: 0; opacity: 0; transform: translateY(-6px); transition: max-height 0.4s, opacity 0.3s, transform 0.3s; pointer-events: none; }
+      .sb-group.open .sb-group-list { max-height: 600px; opacity: 1; transform: translateY(0); pointer-events: auto; }
+      .nav-item { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--sb-text-secondary); text-decoration: none; transition: background 0.2s, color 0.2s; position: relative; width: 100%; text-align: left; }
+      .nav-item i { width: 20px; font-size: 15px; color: var(--sb-text-muted); flex-shrink: 0; }
+      .nav-item:hover { background: var(--sb-accent-dim); color: var(--sb-text); }
+      .nav-item:hover i { color: var(--sb-accent); }
+      .nav-item.active { background: var(--sb-accent-dim); color: var(--sb-text); font-weight: 600; box-shadow: inset 3px 0 0 var(--sb-accent); }
+      .nav-item.active i { color: var(--sb-accent); }
+      .nav-item[hidden] { display: none !important; }
+
+      .sidebar-footer { padding: 12px 16px 16px; border-top: 1px solid var(--sb-border); display: flex; flex-direction: column; gap: 8px; }
+      .theme-toggle { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; border-radius: 8px; background: var(--sb-elevated); border: 1px solid var(--sb-border); }
+      .theme-toggle .sb-toggle-label { font-size: 12px; font-weight: 500; color: var(--sb-text-muted); }
+      .theme-toggle .toggle-switch { position: relative; width: 40px; height: 22px; background: var(--sb-border); border-radius: 12px; cursor: pointer; }
+      .theme-toggle .toggle-switch .slider { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background: #fff; border-radius: 50%; transition: transform 0.3s; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+      [data-theme="dark"] .theme-toggle .toggle-switch { background: var(--sb-accent); }
+      [data-theme="dark"] .theme-toggle .toggle-switch .slider { transform: translateX(18px); }
+      .btn-logout { display: flex; align-items: center; gap: 10px; padding: 10px 14px; width: 100%; border: none; border-radius: 8px; background: rgba(239,68,68,0.08); color: #ef4444; font-size: 13px; font-weight: 500; cursor: pointer; }
+
+      .main-content { margin-left: var(--sb-sidebar-width); padding: 24px 28px 40px; transition: margin-left var(--sb-transition); }
+      .sidebar.collapsed + .main-content { margin-left: var(--sb-sidebar-collapsed); }
+      .page-section { display: none; }
+      .page-section.active { display: block; }
+      .content-topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+      .content-topbar .title { font-size: 24px; font-weight: 700; }
+      .content-topbar .subtitle { color: var(--sb-text-muted); font-size: 14px; margin-top: 4px; }
+      .hero, .card { background: var(--sb-surface); border: 1px solid var(--sb-border); border-radius: 18px; padding: 20px; box-shadow: var(--sb-shadow); }
+      .hero { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 18px; background: linear-gradient(135deg, var(--sb-accent-dim), transparent); }
+      .banner { display: none; margin-bottom: 16px; padding: 12px 14px; border-radius: 12px; border: 1px solid #fbbf24; background: rgba(251,191,36,0.16); color: var(--sb-text); }
+      .banner.active { display: block; }
+      .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 12px; }
+      .stat-card { background: var(--sb-elevated); border: 1px solid var(--sb-border); border-radius: 14px; padding: 14px; }
+      .stat-card strong { font-size: 22px; display: block; margin-bottom: 4px; }
+      .tag { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: var(--sb-accent-dim); color: var(--sb-accent); font-size: 12px; font-weight: 600; }
+      .hero h1 { font-size: 28px; margin-bottom: 8px; }
+      .hero p { color: var(--sb-text-muted); max-width: 620px; }
+      .btn-primary { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 10px; border: none; background: var(--sb-accent); color: white; cursor: pointer; }
+      .btn-secondary { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--sb-border); background: var(--sb-surface); color: var(--sb-text); cursor: pointer; }
+      .btn-danger { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(239,68,68,0.25); background: rgba(239,68,68,0.08); color: #ef4444; cursor: pointer; }
+      .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+      .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: var(--sb-accent-dim); color: var(--sb-accent); font-size: 12px; font-weight: 600; }
+      .store-card, .product-card { background: var(--sb-surface); border: 1px solid var(--sb-border); border-radius: 16px; padding: 16px; box-shadow: var(--sb-shadow); }
+      .store-card img, .product-card img { width: 100%; height: 160px; object-fit: cover; border-radius: 12px; margin-bottom: 12px; background: var(--sb-elevated); }
+      .store-preview-card { margin-top: 14px; border: 1px solid var(--sb-border); border-radius: 16px; overflow: hidden; background: var(--sb-elevated); box-shadow: var(--sb-shadow); }
+      .store-preview-cover { min-height: 140px; display: flex; align-items: flex-end; padding: 18px; background-size: cover; background-position: center; position: relative; }
+      .store-preview-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(15,23,42,0.78), rgba(15,23,42,0.24)); }
+      .store-preview-content { position: relative; z-index: 1; display: flex; align-items: center; gap: 12px; width: 100%; }
+      .store-preview-logo { width: 56px; height: 56px; border-radius: 14px; object-fit: cover; border: 3px solid rgba(255,255,255,0.9); background: #fff; }
+      .store-preview-title { display: flex; flex-direction: column; gap: 3px; color: white; }
+      .store-preview-title strong { font-size: 17px; }
+      .store-preview-title span { font-size: 12px; opacity: 0.9; }
+      .store-preview-body { padding: 14px; display: grid; gap: 10px; }
+      .store-preview-body .badge-row { display: flex; flex-wrap: wrap; gap: 8px; }
+      .preview-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; color: var(--sb-text); background: var(--sb-surface); border: 1px solid var(--sb-border); }
+      .store-hero-card { border-radius: 18px; padding: 18px; color: white; margin-bottom: 16px; box-shadow: var(--sb-shadow); display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+      .store-hero-card .hero-copy { max-width: 560px; }
+      .store-hero-card .hero-copy h3 { font-size: 20px; margin-bottom: 6px; }
+      .store-hero-card .hero-copy p { font-size: 13px; opacity: 0.95; }
+      .store-hero-card .hero-logo { width: 64px; height: 64px; border-radius: 16px; object-fit: cover; border: 3px solid rgba(255,255,255,0.9); background: #fff; flex-shrink: 0; }
+      .muted { color: var(--sb-text-muted); font-size: 13px; }
+      .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+      .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+      .field label { font-size: 13px; font-weight: 600; color: var(--sb-text-secondary); }
+      input, textarea, select { width: 100%; border: 1px solid var(--sb-border); background: var(--sb-surface); color: var(--sb-text); padding: 10px 12px; border-radius: 10px; }
+      textarea { resize: vertical; min-height: 90px; }
+      ul { padding-left: 18px; }
+      .empty { color: var(--sb-text-muted); padding: 20px 0; }
+      .mobile-only { display: none; }
+      .owner-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: rgba(37,99,235,0.12); color: var(--sb-accent); font-size: 11px; font-weight: 700; margin-bottom: 8px; }
+      .photo-choice-row { display: flex; gap: 8px; flex-wrap: wrap; }
+      .photo-choice-btn { position: relative; overflow: hidden; }
+      .photo-choice-btn input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+      .qty-row { display: flex; align-items: center; gap: 8px; }
+      .qty-input { width: 64px; flex: 0 0 auto; text-align: center; padding: 10px 6px; }
+      .field-row { display: flex; gap: 10px; flex-wrap: wrap; }
+      .field-row .field { flex: 1; min-width: 140px; margin-bottom: 12px; }
+      .cep-status { font-size: 12px; margin-top: 4px; min-height: 16px; }
+      .cep-status.ok { color: #16a34a; }
+      .cep-status.erro { color: #ef4444; }
+      .cep-status.carregando { color: var(--sb-text-muted); }
+      .match-note { font-size: 11px; color: var(--sb-accent); margin-top: 4px; }
+      @media (max-width: 1200px) {
+        .hero { flex-direction: column; align-items: flex-start; }
+        .hero h1 { font-size: 24px; }
+      }
+      @media (max-width: 992px) {
+        /* CORRIGIDO: a sidebar estava com "display: none !important" fixo,
+           ou seja, nunca aparecia no celular de jeito nenhum - e o JS ainda
+           removia os botões que abririam esse menu (ver bindEvents). Isso
+           deixava "Minhas lojas", "Cadastrar produto", "Contas pagas" e
+           "Estoque" (que não estão na barra inferior) impossíveis de
+           acessar pelo celular. Agora a sidebar volta a funcionar como uma
+           gaveta: fica fora da tela por padrão e desliza pra dentro quando
+           o botão "Mais" (barra inferior) ou o ícone de menu são tocados. */
+        .sidebar { transform: translateX(-100%); transition: transform var(--sb-transition); max-width: 85vw; }
+        .sidebar.open { transform: translateX(0); }
+        .sidebar-overlay { display: block; }
+        .main-content { margin-left: 0; padding: 16px 16px 30px; }
+        .sidebar.collapsed + .main-content { margin-left: 0; }
+        .mobile-only { display: inline-flex; }
+        .content-topbar { flex-direction: column; align-items: flex-start; gap: 10px; }
+      }
+      @media (max-width: 640px) {
+        .sidebar-header { padding: 16px; }
+        .sidebar-user { margin: 12px; }
+        .sidebar-nav { padding: 8px; }
+        .hero, .card, .store-card, .product-card { padding: 14px; border-radius: 14px; }
+        .hero h1 { font-size: 20px; }
+        .grid { grid-template-columns: 1fr; }
+        .store-hero-card { flex-direction: column; align-items: flex-start; }
+        .store-preview-content { flex-direction: column; align-items: flex-start; }
+        .field-row { flex-direction: column; gap: 0; }
+        .field-row .field { min-width: 0; }
+        .qty-row { width: 100%; }
+        .row > button,
+        .row > a,
+        .row > .btn-primary,
+        .row > .btn-secondary,
+        .row > .btn-danger { flex: 1 1 100%; justify-content: center; }
+      }
+
+      /* -----------------------------------------------------------------
+         BARRA DE NAVEGAÇÃO INFERIOR (mobile)
+         Acesso rápido às seções mais usadas (Início, Lojas, Vitrine,
+         Pedidos, Carrinho, Perfil). O botão "Mais" abre a gaveta lateral
+         com as seções de vendedor (Minhas lojas, Cadastrar produto,
+         Contas a receber, Contas pagas, Estoque, Tema, Sair).
+         ----------------------------------------------------------------- */
+      .bottom-nav {
+        display: none;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 900;
+        background: var(--sb-surface);
+        border-top: 1px solid var(--sb-border);
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+        padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+      }
+      .bottom-nav-list { display: flex; align-items: stretch; justify-content: space-between; gap: 4px; flex-wrap: wrap; }
+      .bottom-nav .nav-item {
+        flex: 1 1 calc(100% / 7 - 4px);
+        min-width: 72px;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        padding: 6px 2px;
+        border-radius: 10px;
+        font-size: 10px;
+        font-weight: 600;
+        text-align: center;
+        box-shadow: none;
+      }
+      .bottom-nav .nav-item i { width: auto; font-size: 18px; margin: 0; }
+      .bottom-nav .nav-item.active { background: var(--sb-accent-dim); box-shadow: none; }
+      .bottom-nav .nav-item.active i,
+      .bottom-nav .nav-item.active { color: var(--sb-accent); }
+      .bottom-nav .nav-item span { display: block; line-height: 1.1; }
+
+      @media (max-width: 992px) {
+        .bottom-nav { display: block; }
+        .main-content { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    <aside class="sidebar" id="appSidebar">
+      <div class="sidebar-header">
+        <div class="sb-brand">
+          <div class="sb-brand-icon"><i class="fas fa-store"></i></div>
+          <div class="sb-brand-title">
+            <h2>Vitrine Local</h2>
+            <small>Venda, entregue e cresça</small>
+          </div>
+        </div>
+        <button class="sb-toggle-btn" id="sidebarToggleBtn" aria-label="Abrir menu"><i class="fas fa-bars"></i></button>
+      </div>
+
+      <div class="sidebar-user">
+        <div class="name" id="sidebarName">Bem-vindo</div>
+        <div class="role" id="sidebarRole">Cliente &amp; vendedor</div>
+        <div class="clinic"><i class="fas fa-map-marker-alt"></i> <span id="sidebarClinic">Lojas próximas</span></div>
+      </div>
+
+      <nav class="sidebar-nav" id="sidebarNav">
+        <div class="sb-group open" data-group="principal">
+          <button class="sb-group-btn" type="button"><span>Principal</span><span class="caret">▶</span></button>
+          <div class="sb-group-list">
+            <a class="nav-item active" href="#home" data-page="home"><i class="fas fa-home"></i><span>Início</span></a>
+            <a class="nav-item" href="#lojas" data-page="lojas"><i class="fas fa-map-marked-alt"></i><span>Lojas próximas</span></a>
+            <a class="nav-item" href="#vitrine" data-page="vitrine"><i class="fas fa-store"></i><span>Vitrine</span></a>
+          </div>
+        </div>
+
+        <div class="sb-group open" data-group="vendedor" id="vendedorGroup" hidden>
+          <button class="sb-group-btn" type="button"><span>Vendedor</span><span class="caret">▶</span></button>
+          <div class="sb-group-list">
+            <a class="nav-item" href="#minhas-lojas" data-page="minhas-lojas"><i class="fas fa-shop"></i><span>Minhas lojas</span></a>
+            <a class="nav-item" href="#cadastrar-produto" data-page="cadastrar-produto"><i class="fas fa-box-open"></i><span>Cadastrar produto</span></a>
+            <a class="nav-item" href="#contas-a-receber" data-page="contas-a-receber"><i class="fas fa-hand-holding-dollar"></i><span>Contas a receber</span></a>
+            <a class="nav-item" href="#contas-pagas" data-page="contas-pagas"><i class="fas fa-money-check-dollar"></i><span>Contas pagas</span></a>
+            <a class="nav-item" href="#estoque" data-page="estoque"><i class="fas fa-boxes-stacked"></i><span>Estoque</span></a>
+          </div>
+        </div>
+
+        <div class="sb-group open" data-group="compras">
+          <button class="sb-group-btn" type="button"><span>Compras</span><span class="caret">▶</span></button>
+          <div class="sb-group-list">
+            <a class="nav-item" href="#carrinho" data-page="carrinho"><i class="fas fa-shopping-cart"></i><span>Carrinho</span></a>
+            <a class="nav-item" href="#pedidos" data-page="pedidos"><i class="fas fa-receipt"></i><span>Pedidos</span></a>
+          </div>
+        </div>
+
+        <div class="sb-group open" data-group="conta">
+          <button class="sb-group-btn" type="button"><span>Conta</span><span class="caret">▶</span></button>
+          <div class="sb-group-list">
+            <a class="nav-item" href="#perfil" data-page="perfil"><i class="fas fa-user-circle"></i><span>Perfil</span></a>
+          </div>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="theme-toggle">
+          <span class="sb-toggle-label"><i class="fas fa-moon"></i> Tema</span>
+          <div class="toggle-switch" id="themeToggle" role="button" tabindex="0" aria-label="Alternar tema">
+            <div class="slider"></div>
+          </div>
+        </div>
+        <button class="btn-logout" id="logoutBtn"><i class="fas fa-sign-out-alt"></i><span>Sair</span></button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="content-topbar">
+        <div>
+          <div class="title" id="pageTitle">Início</div>
+          <div class="subtitle" id="pageSubtitle">Conecte clientes, cadastre produtos e converta pedidos em WhatsApp.</div>
+        </div>
+        <button class="btn-secondary mobile-only" id="mobileMenuBtn"><i class="fas fa-bars"></i> Menu</button>
+      </div>
+
+      <div class="banner" id="statusBanner"></div>
+
+      <section class="page-section active" id="page-home">
+        <div class="hero">
+          <div>
+            <h1>Seu negócio em uma vitrine moderna</h1>
+            <p>Clientes encontram lojas perto deles, veem produtos com fotos, escolhem itens no carrinho e finalizam tudo em WhatsApp com uma mensagem pronta.</p>
+          </div>
+          <button class="btn-primary" id="btnHomeToVitrine"><i class="fas fa-arrow-right"></i> Ver vitrine</button>
+        </div>
+        <div id="dashboardArea" class="stat-grid"></div>
+        <div class="grid" style="margin-top: 16px;">
+          <div class="card">
+            <h3><i class="fas fa-map-location-dot"></i> Lojas próximas</h3>
+            <p class="muted" style="margin-top:8px;">Mostre lojas perto do cliente e facilite a descoberta do seu catálogo.</p>
+          </div>
+          <div class="card">
+            <h3><i class="fas fa-boxes-stacked"></i> Gestão de estoque</h3>
+            <p class="muted" style="margin-top:8px;">Você controla preço, descrição e quantidade, mas o cliente só vê disponibilidade.</p>
+          </div>
+          <div class="card">
+            <h3><i class="fas fa-comment-dots"></i> WhatsApp direto</h3>
+            <p class="muted" style="margin-top:8px;">No fechamento, o pedido já vem formatado para o dono da loja responder rapidamente.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="page-section" id="page-lojas">
+        <div class="card">
+          <h2><i class="fas fa-shop"></i> Lojas</h2>
+          <p class="muted" style="margin-top:8px;">Todas as lojas cadastradas aparecem aqui. Busque por nome ou produto, ou filtre pelas mais próximas de você.</p>
+          <div class="row" style="margin-top:12px;">
+            <div class="field" style="flex:1; min-width:220px; margin-bottom:0;">
+              <label>Buscar</label>
+              <input type="text" id="buscaLojaTermo" placeholder="Ex: padaria, tênis, mercado..." />
+            </div>
+            <button class="btn-primary" id="btnBuscarLojas" type="button"><i class="fas fa-magnifying-glass"></i> Buscar</button>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <button class="btn-secondary" id="btnBuscarLojasProximas" type="button"><i class="fas fa-location-dot"></i> Perto de mim</button>
+            <div class="field" id="raioLojaKmWrap" style="flex:0 0 120px; margin-bottom:0;" hidden>
+              <input type="number" id="raioLojaKm" min="1" max="100" value="15" title="Raio em km" />
+            </div>
+            <button class="btn-secondary" id="btnLimparFiltroLojas" type="button" hidden><i class="fas fa-rotate-left"></i> Ver todas</button>
+          </div>
+          <p class="muted" id="lojasStatus" style="margin-top:10px;"></p>
+          <div id="lojasArea" style="margin-top:12px;"></div>
+        </div>
+      </section>
+
+      <section class="page-section" id="page-vitrine">
+        <div class="card">
+          <div class="row" style="margin-top:0; justify-content:space-between; align-items:center;">
+            <h2 style="margin:0;"><i class="fas fa-store"></i> Vitrine da loja</h2>
+            <div class="row" style="margin-top:0;">
+              <button class="btn-secondary" id="btnVoltarLojas" type="button"><i class="fas fa-arrow-left"></i> Voltar</button>
+              <button class="btn-secondary" id="btnAtualizarVitrine" type="button"><i class="fas fa-rotate-right"></i> Atualizar</button>
+            </div>
+          </div>
+          <p class="muted" style="margin-top:8px;">Escolha uma loja na aba "Lojas" para ver os produtos, compartilhar e adicionar itens ao carrinho.</p>
+          <div id="vitrineArea" style="margin-top:16px;"></div>
+        </div>
+      </section>
+
+      <section class="page-section" id="page-minhas-lojas">
+        <div class="grid">
+          <div class="card">
+            <h2><i class="fas fa-shop"></i> Criar minha loja</h2>
+            <form id="lojaForm">
+              <div class="field">
+                <label>Nome da loja</label>
+                <input type="text" id="lojaNome" required />
+              </div>
+              <div class="field">
+                <label>Descrição</label>
+                <textarea id="lojaDescricao"></textarea>
+              </div>
+              <div class="field">
+                <label>WhatsApp</label>
+                <input type="text" id="lojaWhatsapp" placeholder="5511999999999" required />
+              </div>
+              <div class="field">
+                <label>Tipo de documento</label>
+                <select id="lojaTipoDocumento">
+                  <option value="cpf">CPF</option>
+                  <option value="cnpj">CNPJ</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>CPF/CNPJ</label>
+                <input type="text" id="lojaDocumento" placeholder="00000000000 ou 00000000000000" required />
+              </div>
+              <div class="field-row">
+                <div class="field">
+                  <label>CEP</label>
+                  <input type="text" id="lojaCep" placeholder="00000-000" inputmode="numeric" maxlength="9" required />
+                  <div class="cep-status" id="lojaCepStatus"></div>
+                </div>
+                <div class="field">
+                  <label>Número</label>
+                  <input type="text" id="lojaNumero" placeholder="123" />
+                </div>
+              </div>
+              <input type="hidden" id="lojaId" />
+              <div class="field">
+                <label>Logo da vitrine</label>
+                <div class="photo-choice-row">
+                  <button type="button" class="btn-secondary photo-choice-btn">
+                    <i class="fas fa-camera"></i> Tirar foto
+                    <input type="file" id="lojaLogoCameraInput" accept="image/*" capture="environment" />
+                  </button>
+                  <button type="button" class="btn-secondary photo-choice-btn">
+                    <i class="fas fa-image"></i> Escolher da galeria
+                    <input type="file" id="lojaLogoGalleryInput" accept="image/*" />
+                  </button>
+                </div>
+                <input type="text" id="lojaLogoUrl" placeholder="ou cole uma URL aqui" style="margin-top:8px;" />
+                <small class="muted">Tire uma foto agora ou escolha da galeria. Se quiser, você pode colar uma URL também.</small>
+              </div>
+              <div class="field">
+                <label>Capa da vitrine</label>
+                <div class="photo-choice-row">
+                  <button type="button" class="btn-secondary photo-choice-btn">
+                    <i class="fas fa-camera"></i> Tirar foto
+                    <input type="file" id="lojaCoverCameraInput" accept="image/*" capture="environment" />
+                  </button>
+                  <button type="button" class="btn-secondary photo-choice-btn">
+                    <i class="fas fa-image"></i> Escolher da galeria
+                    <input type="file" id="lojaCoverGalleryInput" accept="image/*" />
+                  </button>
+                </div>
+                <input type="text" id="lojaCoverUrl" placeholder="ou cole uma URL aqui" style="margin-top:8px;" />
+                <small class="muted">A imagem escolhida será enviada para o storage e usada na vitrine.</small>
+              </div>
+              <div class="field">
+                <label>Cor principal</label>
+                <input type="color" id="lojaPrimaryColor" value="#2563eb" />
+              </div>
+              <div class="field">
+                <label>Cor secundária</label>
+                <input type="color" id="lojaSecondaryColor" value="#0f766e" />
+              </div>
+              <div class="field">
+                <label>Cor de destaque</label>
+                <input type="color" id="lojaAccentColor" value="#f59e0b" />
+              </div>
+              <div class="field">
+                <label>Título da vitrine</label>
+                <input type="text" id="lojaHeroTitle" placeholder="Nossa vitrine especial" />
+              </div>
+              <div class="field">
+                <label>Subtítulo da vitrine</label>
+                <input type="text" id="lojaHeroSubtitle" placeholder="Promoções, novidades e atendimento rápido" />
+              </div>
+              <div class="store-preview-card" id="storePreviewCard">
+                <div class="store-preview-cover" id="storePreviewCover">
+                  <div class="store-preview-content">
+                    <img class="store-preview-logo" id="storePreviewLogo" src="https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=400&q=80" alt="Logo da loja" />
+                    <div class="store-preview-title">
+                      <strong id="storePreviewTitle">Sua vitrine</strong>
+                      <span id="storePreviewSubtitle">Personalize cores, logo e mensagem.</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="store-preview-body">
+                  <div class="badge-row">
+                    <span class="preview-badge"><i class="fas fa-palette"></i> Visual customizado</span>
+                    <span class="preview-badge"><i class="fas fa-mobile-screen"></i> Responsivo</span>
+                  </div>
+                </div>
+              </div>
+              <button class="btn-primary" type="submit" style="margin-top:12px;"><i class="fas fa-plus"></i> Criar loja</button>
+            </form>
+          </div>
+          <div class="card">
+            <h2><i class="fas fa-list"></i> Minhas lojas</h2>
+            <div id="minhasLojasArea" class="empty">Faça login para visualizar suas lojas.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page-section" id="page-cadastrar-produto">
+        <div class="grid">
+          <div class="card">
+            <h2><i class="fas fa-box-open"></i> Cadastrar produto</h2>
+            <form id="produtoForm">
+              <div class="field">
+                <label>Loja</label>
+                <select id="produtoLojaId" required></select>
+              </div>
+              <div class="field">
+                <label>Nome</label>
+                <input type="text" id="produtoNome" required />
+              </div>
+              <div class="field">
+                <label>Descrição</label>
+                <textarea id="produtoDescricao"></textarea>
+              </div>
+              <div class="field">
+                <label>Preço</label>
+                <input type="number" id="produtoPreco" min="0" step="0.01" required />
+              </div>
+              <div class="field">
+                <label>Quantidade em estoque</label>
+                <input type="number" id="produtoQuantidade" min="0" value="0" required />
+              </div>
+              <div class="field">
+                <label><input type="checkbox" id="produtoAtivo" checked /> Produto ativo</label>
+              </div>
+              <div class="field">
+                <label>Foto do produto</label>
+                <div class="photo-choice-row">
+                  <button type="button" class="btn-secondary photo-choice-btn">
+                    <i class="fas fa-camera"></i> Tirar foto
+                    <input type="file" id="produtoFotoCameraInput" accept="image/*" capture="environment" multiple />
+                  </button>
+                  <button type="button" class="btn-secondary photo-choice-btn">
+                    <i class="fas fa-image"></i> Escolher da galeria
+                    <input type="file" id="produtoFotoGalleryInput" accept="image/*" multiple />
+                  </button>
+                </div>
+              </div>
+              <div class="field">
+                <label>Fotos (URLs ou foto capturada, separadas por vírgula)</label>
+                <textarea id="produtoFotos" placeholder="https://...jpg, https://...png"></textarea>
+              </div>
+              <div class="field" id="produtoFotoPreviewWrapper" style="display:none;">
+                <label>Prévia da foto</label>
+                <img id="produtoFotoPreview" src="" alt="Prévia da foto do produto" style="max-width:100%; border-radius:12px; margin-top:8px;" />
+              </div>
+              <div class="row" style="margin-top:0;">
+                <button id="produtoSubmitButton" class="btn-primary" type="submit"><i class="fas fa-save"></i> Salvar produto</button>
+                <button id="produtoCancelarEdicaoBtn" class="btn-secondary" type="button" style="display:none;"><i class="fas fa-times"></i> Cancelar edição</button>
+              </div>
+            </form>
+          </div>
+          <div class="card">
+            <h2><i class="fas fa-boxes-stacked"></i> Meus produtos</h2>
+            <p class="muted" style="margin-top:8px;">Edite, exclua ou compartilhe produtos da loja selecionada acima.</p>
+            <div id="produtosGerenciarArea" class="empty" style="margin-top:12px;">Selecione uma loja para gerenciar os produtos.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page-section" id="page-carrinho">
+        <div class="card">
+          <h2><i class="fas fa-shopping-cart"></i> Carrinho</h2>
+          <div id="carrinhoArea" class="empty">Seu carrinho aparecerá aqui.</div>
+        </div>
+      </section>
+
+      <section class="page-section" id="page-pedidos">
+        <div class="card">
+          <div class="row" style="justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+            <div>
+              <h2><i class="fas fa-receipt"></i> Pedidos</h2>
+              <p class="muted" style="margin-top:8px;">Veja o histórico de pedidos, o cliente que comprou e a forma de pagamento escolhida.</p>
+            </div>
+            <div class="row" style="gap:8px; flex-wrap:wrap;">
+              <button class="btn-secondary" id="btnContasReceber" type="button"><i class="fas fa-hand-holding-dollar"></i> Contas a receber</button>
+              <button class="btn-secondary" id="btnContasPagas" type="button"><i class="fas fa-money-check-dollar"></i> Contas pagas</button>
+              <button class="btn-secondary" id="btnRelatorioEstoque" type="button"><i class="fas fa-chart-line"></i> Relatório de estoque</button>
+            </div>
+          </div>
+          <div id="pedidosArea" class="empty" style="margin-top:16px;">Nenhum pedido ainda.</div>
+        </div>
+      </section>
+
+      <section class="page-section" id="page-contas-a-receber">
+        <div class="card">
+          <div class="row" style="justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+            <div>
+              <h2><i class="fas fa-hand-holding-dollar"></i> Contas a receber</h2>
+              <p class="muted" style="margin-top:8px;">Parcelações pendentes e valores que ainda estão por receber.</p>
+            </div>
+            <button class="btn-secondary" type="button" onclick="window.location.hash='pedidos'">Voltar aos pedidos</button>
+          </div>
+          <div id="contasReceberArea" class="empty" style="margin-top:16px;">Nenhuma conta a receber no momento.</div>
+        </div>
+      </section>
+
+      <section class="page-section" id="page-contas-pagas">
+        <div class="card">
+          <div class="row" style="justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+            <div>
+              <h2><i class="fas fa-check-circle"></i> Contas pagas</h2>
+              <p class="muted" style="margin-top:8px;">Parcelas e pagamentos já baixados.</p>
+            </div>
+            <button class="btn-secondary" type="button" onclick="window.location.hash='pedidos'">Voltar aos pedidos</button>
+          </div>
+          <div id="contasPagasArea" class="empty" style="margin-top:16px;">Nenhuma conta paga no momento.</div>
+        </div>
+      </section>
+
+      <section class="page-section" id="page-estoque">
+        <div class="card">
+          <div class="row" style="justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+            <div>
+              <h2><i class="fas fa-boxes-stacked"></i> Relatório de estoque</h2>
+              <p class="muted" style="margin-top:8px;">Observe o estoque atual dos produtos da sua loja e identifique itens com pouca quantidade.</p>
+            </div>
+            <button class="btn-secondary" type="button" onclick="window.location.hash='pedidos'">Voltar aos pedidos</button>
+          </div>
+          <div id="estoqueArea" class="empty" style="margin-top:16px;">Nenhum dado de estoque disponível.</div>
+        </div>
+      </section>
+
+      <section class="page-section" id="page-perfil">
+        <div class="card">
+          <h2><i class="fas fa-user-circle"></i> Perfil</h2>
+          <p class="muted" style="margin-top:8px;">Comece como cliente, e quando quiser, transforme seu perfil em loja com CNPJ ou CPF.</p>
+          <div id="perfilArea" class="empty">Faça login para ver seus dados.</div>
+        </div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" id="bottomNav" aria-label="Navegação principal">
+      <div class="bottom-nav-list">
+        <a class="nav-item active" href="#home" data-page="home"><i class="fas fa-home"></i><span>Início</span></a>
+        <a class="nav-item" href="#lojas" data-page="lojas"><i class="fas fa-map-marked-alt"></i><span>Lojas</span></a>
+        <a class="nav-item" href="#vitrine" data-page="vitrine"><i class="fas fa-store"></i><span>Vitrine</span></a>
+        <a class="nav-item" href="#pedidos" data-page="pedidos"><i class="fas fa-receipt"></i><span>Pedidos</span></a>
+        <a class="nav-item" href="#carrinho" data-page="carrinho"><i class="fas fa-shopping-cart"></i><span>Carrinho</span></a>
+        <a class="nav-item" href="#perfil" data-page="perfil"><i class="fas fa-user-circle"></i><span>Perfil</span></a>
+        <button class="nav-item" type="button" id="bnMaisBtn"><i class="fas fa-bars"></i><span>Mais</span></button>
+      </div>
+    </nav>
+
+    <script type="module">
+      import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+      const state = {
+        usuario: null,
+        lojaSelecionada: null,
+        lojaSelecionadaManual: false,
+        carrinhoId: null,
+        lojas: [],
+        lojasTodas: [],
+        lojasExibidas: [],
+        minhasLojas: [],
+        produtosVitrine: [],
+        produtosGerenciados: [],
+        produtoEditandoId: null,
+        pedidos: [],
+        pedidosRecebidos: [],
+        perfil: null,
+        supabase: null,
+        token: null
+      };
+
+      const pageTitle = document.getElementById('pageTitle');
+      const pageSubtitle = document.getElementById('pageSubtitle');
+      const sidebarName = document.getElementById('sidebarName');
+      const sidebarRole = document.getElementById('sidebarRole');
+      const sidebarClinic = document.getElementById('sidebarClinic');
+      const dashboardArea = document.getElementById('dashboardArea');
+      const lojasArea = document.getElementById('lojasArea');
+      const lojasStatusEl = document.getElementById('lojasStatus');
+      const buscaLojaTermoInput = document.getElementById('buscaLojaTermo');
+      const btnBuscarLojas = document.getElementById('btnBuscarLojas');
+      const vitrineArea = document.getElementById('vitrineArea');
+      const raioLojaKmInput = document.getElementById('raioLojaKm');
+      const raioLojaKmWrap = document.getElementById('raioLojaKmWrap');
+      const btnBuscarLojasProximas = document.getElementById('btnBuscarLojasProximas');
+      const btnLimparFiltroLojas = document.getElementById('btnLimparFiltroLojas');
+      const btnAtualizarVitrine = document.getElementById('btnAtualizarVitrine');
+      const produtosGerenciarArea = document.getElementById('produtosGerenciarArea');
+      const carrinhoArea = document.getElementById('carrinhoArea');
+      const minhasLojasArea = document.getElementById('minhasLojasArea');
+      const pedidosArea = document.getElementById('pedidosArea');
+      const contasReceberArea = document.getElementById('contasReceberArea');
+      const contasPagasArea = document.getElementById('contasPagasArea');
+      const estoqueArea = document.getElementById('estoqueArea');
+      const perfilArea = document.getElementById('perfilArea');
+      const produtoLojaId = document.getElementById('produtoLojaId');
+      const lojaForm = document.getElementById('lojaForm');
+      const produtoForm = document.getElementById('produtoForm');
+      const lojaCepInput = document.getElementById('lojaCep');
+      const lojaCepStatus = document.getElementById('lojaCepStatus');
+      const lojaNumeroInput = document.getElementById('lojaNumero');
+      const lojaLogoUrlInput = document.getElementById('lojaLogoUrl');
+      const lojaCoverUrlInput = document.getElementById('lojaCoverUrl');
+      const lojaPrimaryColorInput = document.getElementById('lojaPrimaryColor');
+      const lojaSecondaryColorInput = document.getElementById('lojaSecondaryColor');
+      const lojaAccentColorInput = document.getElementById('lojaAccentColor');
+      const lojaHeroTitleInput = document.getElementById('lojaHeroTitle');
+      const lojaHeroSubtitleInput = document.getElementById('lojaHeroSubtitle');
+      const storePreviewCover = document.getElementById('storePreviewCover');
+      const storePreviewLogo = document.getElementById('storePreviewLogo');
+      const storePreviewTitle = document.getElementById('storePreviewTitle');
+      const storePreviewSubtitle = document.getElementById('storePreviewSubtitle');
+      const produtoCancelarEdicaoBtn = document.getElementById('produtoCancelarEdicaoBtn');
+
+      async function init() {
+        const config = await fetch('/config').then((r) => r.json());
+        const hasSupabase = Boolean(config.supabaseUrl && config.supabaseAnonKey);
+        const banner = document.getElementById('statusBanner');
+
+        if (!hasSupabase) {
+          banner.classList.add('active');
+          banner.innerHTML = '<strong>Configuração pendente:</strong> defina as chaves do Supabase no arquivo .env para ativar login, lojas e pedidos.';
+        } else {
+          state.supabase = createClient(config.supabaseUrl, config.supabaseAnonKey);
+        }
+
+        bindEvents();
+
+        const initialPage = window.location.hash.replace('#', '') || 'home';
+        showPage(initialPage);
+
+        await carregarUsuario();
+        await carregarTodasLojas();
+        await carregarVitrinePadrao();
+      }
+
+      function closeSidebar() {
+        const sidebar = document.getElementById('appSidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        if (sidebar) sidebar.classList.remove('open');
+        if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+      }
+
+      function handleHashChange() {
+        const page = window.location.hash.replace('#', '') || 'home';
+        if (page) showPage(page);
+      }
+
+      function bindEvents() {
+        document.querySelectorAll('.nav-item[data-page]').forEach((item) => {
+          item.addEventListener('click', (event) => {
+            event.preventDefault();
+            const page = item.dataset.page;
+            if (!page) return;
+            window.location.hash = page;
+            closeSidebar();
+          });
+        });
+
+        document.querySelectorAll('.sb-group-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const group = btn.closest('.sb-group');
+            if (group) group.classList.toggle('open');
+          });
+        });
+
+        document.getElementById('themeToggle').addEventListener('click', () => {
+          const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+          const next = isDark ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          localStorage.setItem('theme', next);
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', () => logout());
+
+        // CORRIGIDO: antes esse bloco removia o botão de abrir o menu, a
+        // sobreposição escura e até o próprio botão de hambúrguer, e ainda
+        // forçava a sidebar com display:none no celular - resultado: no
+        // celular não tinha nenhuma forma de abrir o menu lateral, então
+        // "Minhas lojas", "Cadastrar produto", "Contas pagas" e "Estoque"
+        // ficavam inacessíveis. Agora a sidebar volta a abrir como gaveta.
+        const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+        const appSidebar = document.getElementById('appSidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+        if (sidebarToggleBtn && appSidebar) {
+          sidebarToggleBtn.addEventListener('click', () => {
+            if (window.innerWidth <= 992) {
+              appSidebar.classList.toggle('open');
+              if (sidebarOverlay) sidebarOverlay.classList.toggle('active');
+            } else {
+              appSidebar.classList.toggle('collapsed');
+            }
+          });
+        }
+
+        if (sidebarOverlay) {
+          sidebarOverlay.addEventListener('click', closeSidebar);
+        }
+
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        if (mobileMenuBtn) {
+          mobileMenuBtn.addEventListener('click', () => {
+            appSidebar?.classList.add('open');
+            sidebarOverlay?.classList.add('active');
+          });
+        }
+
+        // Botão "Mais" da barra inferior: mesma ação de abrir a gaveta.
+        const bnMaisBtn = document.getElementById('bnMaisBtn');
+        if (bnMaisBtn) {
+          bnMaisBtn.addEventListener('click', () => {
+            appSidebar?.classList.add('open');
+            sidebarOverlay?.classList.add('active');
+          });
+        }
+
+        document.getElementById('btnHomeToVitrine').addEventListener('click', () => {
+          window.location.hash = 'vitrine';
+        });
+        document.getElementById('btnVoltarLojas').addEventListener('click', () => {
+          window.location.hash = 'lojas';
+        });
+        window.addEventListener('hashchange', handleHashChange);
+        window.addEventListener('popstate', handleHashChange);
+
+        btnBuscarLojasProximas.addEventListener('click', () => {
+          raioLojaKmWrap.hidden = false;
+          btnLimparFiltroLojas.hidden = false;
+          carregarLojasProximas(Number(raioLojaKmInput.value || 15));
+        });
+        raioLojaKmInput.addEventListener('change', () => carregarLojasProximas(Number(raioLojaKmInput.value || 15)));
+
+        btnBuscarLojas.addEventListener('click', () => {
+          btnLimparFiltroLojas.hidden = false;
+          buscarLojas(buscaLojaTermoInput.value);
+        });
+        buscaLojaTermoInput.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            btnLimparFiltroLojas.hidden = false;
+            buscarLojas(buscaLojaTermoInput.value);
+          }
+        });
+        btnLimparFiltroLojas.addEventListener('click', () => {
+          buscaLojaTermoInput.value = '';
+          raioLojaKmWrap.hidden = true;
+          btnLimparFiltroLojas.hidden = true;
+          carregarTodasLojas();
+        });
+
+        btnAtualizarVitrine.addEventListener('click', () => {
+          if (state.lojaSelecionada) {
+            carregarVitrine(state.lojaSelecionada);
+            carregarCarrinho();
+          } else {
+            carregarVitrinePadrao();
+          }
+        });
+
+        document.getElementById('btnContasReceber').addEventListener('click', async () => {
+          await carregarContasAReceber();
+          window.location.hash = 'contas-a-receber';
+        });
+        document.getElementById('btnContasPagas').addEventListener('click', async () => {
+          await carregarContasPagas();
+          window.location.hash = 'contas-pagas';
+        });
+        document.getElementById('btnRelatorioEstoque').addEventListener('click', async () => {
+          await carregarRelatorioEstoque();
+          window.location.hash = 'estoque';
+        });
+
+        [lojaLogoUrlInput, lojaCoverUrlInput, lojaPrimaryColorInput, lojaSecondaryColorInput, lojaAccentColorInput, lojaHeroTitleInput, lojaHeroSubtitleInput].forEach((input) => {
+          input.addEventListener('input', syncStorePreview);
+          input.addEventListener('change', syncStorePreview);
+        });
+
+        lojaCepInput.addEventListener('input', () => {
+          lojaCepInput.value = formatarCep(lojaCepInput.value);
+        });
+        lojaCepInput.addEventListener('blur', () => consultarCep(lojaCepInput.value));
+
+        document.getElementById('lojaLogoCameraInput').addEventListener('change', (e) => handleStoreImageSelection(e.target, lojaLogoUrlInput));
+        document.getElementById('lojaLogoGalleryInput').addEventListener('change', (e) => handleStoreImageSelection(e.target, lojaLogoUrlInput));
+        document.getElementById('lojaCoverCameraInput').addEventListener('change', (e) => handleStoreImageSelection(e.target, lojaCoverUrlInput));
+        document.getElementById('lojaCoverGalleryInput').addEventListener('change', (e) => handleStoreImageSelection(e.target, lojaCoverUrlInput));
+
+        async function handleProdutoFotoFiles(fileInput) {
+          const files = Array.from(fileInput.files || []);
+          if (!files.length) return;
+
+          try {
+            const urls = [];
+            for (const file of files) {
+              urls.push(await uploadImageToStorage(file));
+            }
+
+            const current = document.getElementById('produtoFotos').value;
+            document.getElementById('produtoFotos').value = [current, ...urls].filter(Boolean).join(', ');
+            updateProdutoFotoPreview();
+          } catch (error) {
+            alert(error.message || 'Não foi possível enviar a foto.');
+          } finally {
+            fileInput.value = '';
+          }
+        }
+
+        document.getElementById('produtoFotoCameraInput').addEventListener('change', (e) => handleProdutoFotoFiles(e.target));
+        document.getElementById('produtoFotoGalleryInput').addEventListener('change', (e) => handleProdutoFotoFiles(e.target));
+        document.getElementById('produtoFotos').addEventListener('input', () => updateProdutoFotoPreview());
+
+        produtoCancelarEdicaoBtn.addEventListener('click', () => {
+          resetProdutoForm();
+        });
+
+        function updateProdutoFotoPreview() {
+          const urls = document.getElementById('produtoFotos').value
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean);
+          const previewUrl = urls[0] || '';
+          const previewImg = document.getElementById('produtoFotoPreview');
+          const previewWrapper = document.getElementById('produtoFotoPreviewWrapper');
+          if (previewUrl) {
+            previewImg.src = previewUrl;
+            previewWrapper.style.display = '';
+          } else {
+            previewImg.src = '';
+            previewWrapper.style.display = 'none';
+          }
+        }
+
+        produtoForm.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const lojaId = document.getElementById('produtoLojaId').value;
+          if (!lojaId) return alert('Selecione uma loja antes de salvar o produto.');
+
+          const fotos = document.getElementById('produtoFotos').value.split(',').map((item) => item.trim()).filter(Boolean);
+          const payload = {
+            loja_id: lojaId,
+            nome: document.getElementById('produtoNome').value,
+            descricao: document.getElementById('produtoDescricao').value,
+            preco: Number(document.getElementById('produtoPreco').value),
+            quantidade_estoque: Number(document.getElementById('produtoQuantidade').value),
+            fotos,
+            destaque: true,
+            ativo: document.getElementById('produtoAtivo').checked
+          };
+
+          const url = state.produtoEditandoId ? `/produtos/${state.produtoEditandoId}` : '/produtos';
+          const method = state.produtoEditandoId ? 'PUT' : 'POST';
+          const response = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
+            body: JSON.stringify(payload)
+          });
+          const result = await response.json();
+          if (!response.ok) return alert(result.erro || 'Não foi possível salvar o produto');
+          const eraEdicao = Boolean(state.produtoEditandoId);
+          resetProdutoForm();
+          await carregarProdutosGerenciados(lojaId);
+          if (state.lojaSelecionada === lojaId) {
+            await carregarVitrine(lojaId);
+          }
+          alert(eraEdicao ? 'Produto atualizado com sucesso' : 'Produto cadastrado com sucesso');
+        });
+
+        lojaForm.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          if (!state.usuario) return alert('Faça login para criar ou editar uma loja.');
+
+          const lojaId = document.getElementById('lojaId').value;
+          const cepLimpo = lojaCepInput.value.replace(/\D/g, '');
+          if (cepLimpo.length !== 8) {
+            lojaCepStatus.textContent = 'Informe um CEP válido com 8 dígitos.';
+            lojaCepStatus.className = 'cep-status erro';
+            lojaCepInput.focus();
+            return;
+          }
+
+          const payload = {
+            nome: document.getElementById('lojaNome').value,
+            descricao: document.getElementById('lojaDescricao').value,
+            whatsapp: document.getElementById('lojaWhatsapp').value,
+            documento: document.getElementById('lojaDocumento').value,
+            tipo_documento: document.getElementById('lojaTipoDocumento').value,
+            cep: cepLimpo,
+            numero: lojaNumeroInput.value,
+            logo_url: lojaLogoUrlInput.value,
+            cover_url: lojaCoverUrlInput.value,
+            primary_color: lojaPrimaryColorInput.value,
+            secondary_color: lojaSecondaryColorInput.value,
+            accent_color: lojaAccentColorInput.value,
+            hero_title: lojaHeroTitleInput.value,
+            hero_subtitle: lojaHeroSubtitleInput.value
+          };
+
+          const url = lojaId ? `/lojas/${lojaId}` : '/lojas';
+          const method = lojaId ? 'PUT' : 'POST';
+          const response = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
+            body: JSON.stringify(payload)
+          });
+          const result = await response.json();
+          if (!response.ok) return alert(result.erro || 'Não foi possível salvar a loja');
+
+          lojaForm.reset();
+          document.getElementById('lojaId').value = '';
+          document.querySelector('#page-minhas-lojas button[type="submit"]').innerHTML = '<i class="fas fa-plus"></i> Criar loja';
+          syncStorePreview();
+          lojaCepStatus.textContent = '';
+          lojaCepStatus.className = 'cep-status';
+          state.lojaSelecionadaManual = false;
+          await carregarMinhasLojas();
+          showPage('minhas-lojas');
+          alert(lojaId ? 'Loja atualizada com sucesso' : 'Loja criada com sucesso');
+        });
+
+        window.addEventListener('resize', () => {
+          if (window.innerWidth > 992) {
+            document.getElementById('appSidebar').classList.remove('open');
+            document.getElementById('sidebarOverlay').classList.remove('active');
+          }
+        });
+
+        document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'light');
+      }
+
+      function formatarCep(valor) {
+        const digitos = valor.replace(/\D/g, '').slice(0, 8);
+        if (digitos.length <= 5) return digitos;
+        return `${digitos.slice(0, 5)}-${digitos.slice(5)}`;
+      }
+
+      async function consultarCep(valor) {
+        const cep = valor.replace(/\D/g, '');
+        if (cep.length !== 8) {
+          lojaCepStatus.textContent = cep.length ? 'CEP incompleto.' : '';
+          lojaCepStatus.className = 'cep-status erro';
+          return;
+        }
+
+        lojaCepStatus.textContent = 'Consultando CEP...';
+        lojaCepStatus.className = 'cep-status carregando';
+
+        try {
+          const resposta = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+          const dados = await resposta.json();
+          if (dados.erro) {
+            lojaCepStatus.textContent = 'CEP não encontrado.';
+            lojaCepStatus.className = 'cep-status erro';
+            return;
+          }
+          const endereco = [dados.logradouro, dados.bairro, `${dados.localidade} - ${dados.uf}`].filter(Boolean).join(', ');
+          lojaCepStatus.textContent = endereco || 'CEP válido.';
+          lojaCepStatus.className = 'cep-status ok';
+        } catch (error) {
+          lojaCepStatus.textContent = 'Não foi possível validar o CEP agora, mas ele será conferido ao salvar.';
+          lojaCepStatus.className = 'cep-status erro';
+        }
+      }
+
+      function syncStorePreview() {
+        const title = lojaHeroTitleInput.value || 'Sua vitrine';
+        const subtitle = lojaHeroSubtitleInput.value || 'Personalize cores, logo e mensagem.';
+        const cover = lojaCoverUrlInput.value || 'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=1200&q=80';
+        const logo = lojaLogoUrlInput.value || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=400&q=80';
+        const primary = lojaPrimaryColorInput.value || '#2563eb';
+        const secondary = lojaSecondaryColorInput.value || '#0f766e';
+        storePreviewCover.style.backgroundImage = `linear-gradient(90deg, ${secondary}dd, ${primary}bb), url('${cover}')`;
+        storePreviewLogo.src = logo;
+        storePreviewTitle.textContent = title;
+        storePreviewSubtitle.textContent = subtitle;
+        storePreviewCover.style.borderBottom = `4px solid ${lojaAccentColorInput.value || '#f59e0b'}`;
+      }
+
+      function readFileAsDataUrl(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(file);
+        });
+      }
+
+      async function uploadImageToStorage(file) {
+        if (!state.token) {
+          throw new Error('Faça login para enviar a imagem para o storage.');
+        }
+
+        const dataUrl = await readFileAsDataUrl(file);
+        const response = await fetch('/produtos/upload-foto', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
+          body: JSON.stringify({
+            fileName: file.name,
+            contentType: file.type || 'image/jpeg',
+            dataUrl
+          })
+        });
+
+        const text = await response.text();
+        let result;
+        try {
+          result = JSON.parse(text);
+        } catch (error) {
+          throw new Error(text || 'Resposta inesperada ao enviar a imagem.');
+        }
+
+        if (!response.ok) {
+          throw new Error(result.erro || 'Não foi possível enviar a imagem.');
+        }
+        return result.url;
+      }
+
+      async function handleStoreImageSelection(input, targetInput) {
+        const file = input.files?.[0];
+        if (!file) return;
+
+        const originalValue = targetInput.value;
+        targetInput.value = 'Enviando imagem...';
+
+        try {
+          const url = await uploadImageToStorage(file);
+          targetInput.value = url;
+          syncStorePreview();
+        } catch (error) {
+          targetInput.value = originalValue;
+          alert(error.message || 'Falha ao enviar a imagem.');
+        } finally {
+          input.value = '';
+        }
+      }
+
+      async function compartilharUrl(url, tipo, nome) {
+        const titulo = tipo === 'produto'
+          ? `Confira ${nome ? `o produto "${nome}"` : 'este produto'}`
+          : `Confira ${nome ? `a vitrine da loja "${nome}"` : 'esta vitrine'}`;
+
+        if (navigator.share) {
+          try {
+            await navigator.share({ title: titulo, text: titulo, url });
+            return;
+          } catch (error) {
+            if (error?.name === 'AbortError') return;
+          }
+        }
+
+        try {
+          await navigator.clipboard.writeText(url);
+          alert(`Link copiado para a área de transferência:\n${url}`);
+        } catch (error) {
+          window.prompt('Copie o link abaixo:', url);
+        }
+      }
+
+      async function carregarUsuario() {
+        if (!state.supabase) {
+          state.usuario = null;
+          state.token = null;
+          render();
+          return;
+        }
+
+        const { data: { session } } = await state.supabase.auth.getSession();
+        state.usuario = session?.user || null;
+        state.token = session?.access_token || null;
+        render();
+        if (state.usuario) await refreshUserData();
+      }
+
+      async function carregarPerfil() {
+        if (!state.usuario || !state.token) {
+          state.perfil = null;
+          return;
+        }
+        const { data, error } = await state.supabase
+          .from('perfis')
+          .select('nome, telefone')
+          .eq('id', state.usuario.id)
+          .single();
+
+        if (!error && data) {
+          state.perfil = data;
+        } else {
+          state.perfil = { nome: state.usuario.user_metadata?.full_name || '', telefone: '' };
+          if (error && error.message !== 'No rows found') {
+            console.warn('Não foi possível carregar o perfil:', error.message);
+          }
+        }
+      }
+
+      async function loginGoogle() {
+        if (!state.supabase) {
+          alert('Configure o Supabase no arquivo .env para habilitar o login com Google.');
+          return;
+        }
+
+        await state.supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
+      }
+
+      async function loginEmailSenha() {
+        if (!state.supabase) {
+          return alert('Supabase não está disponível.');
+        }
+        const email = document.getElementById('loginEmail')?.value?.trim();
+        const password = document.getElementById('loginPassword')?.value;
+        if (!email || !password) {
+          return alert('Preencha email e senha para entrar.');
+        }
+
+        const { data, error } = await state.supabase.auth.signInWithPassword({ email, password });
+        if (error) return alert(error.message || 'Falha ao entrar.');
+
+        state.usuario = data.user || state.usuario;
+        state.token = data.session?.access_token || state.token;
+        await carregarUsuario();
+      }
+
+      async function signUpEmailSenha() {
+        if (!state.supabase) {
+          return alert('Supabase não está disponível.');
+        }
+        const email = document.getElementById('loginEmail')?.value?.trim();
+        const password = document.getElementById('loginPassword')?.value;
+        if (!email || !password) {
+          return alert('Preencha email e senha para cadastrar.');
+        }
+
+        const { data, error } = await state.supabase.auth.signUp({ email, password });
+        if (error) return alert(error.message || 'Falha ao cadastrar.');
+
+        alert('Conta criada. Verifique seu email para confirmar o cadastro.');
+        if (data?.user) {
+          state.usuario = data.user;
+          state.token = data.session?.access_token || state.token;
+          await carregarUsuario();
+        }
+      }
+
+      async function atualizarPerfil() {
+        if (!state.usuario || !state.token) {
+          return alert('Faça login para atualizar seu perfil.');
+        }
+        const telefone = document.getElementById('perfilTelefone')?.value.trim();
+        if (!telefone) {
+          return alert('Informe seu telefone de contato no perfil.');
+        }
+
+        const { data, error } = await state.supabase
+          .from('perfis')
+          .update({ telefone })
+          .eq('id', state.usuario.id)
+          .select()
+          .single();
+
+        if (error) return alert(error.message || 'Não foi possível atualizar o perfil.');
+        state.perfil = data;
+        alert('Telefone salvo com sucesso.');
+        render();
+      }
+
+      async function atualizarNomePerfil() {
+        if (!state.usuario || !state.token) {
+          return alert('Faça login para atualizar seu perfil.');
+        }
+        const nome = prompt('Digite seu nome completo', state.perfil?.nome || state.usuario.user_metadata?.full_name || '');
+        if (nome === null) return;
+        const { error } = await state.supabase.auth.updateUser({ data: { full_name: nome } });
+        if (error) return alert(error.message || 'Não foi possível atualizar o nome.');
+
+        const { data, error: perfilError } = await state.supabase
+          .from('perfis')
+          .update({ nome })
+          .eq('id', state.usuario.id)
+          .select()
+          .single();
+
+        if (perfilError) return alert(perfilError.message || 'Não foi possível atualizar o perfil.');
+        state.usuario.user_metadata = { ...state.usuario.user_metadata, full_name: nome };
+        state.perfil = data;
+        alert('Nome atualizado com sucesso.');
+        render();
+      }
+
+      async function logout() {
+        if (state.supabase) {
+          await state.supabase.auth.signOut();
+        }
+        state.usuario = null;
+        state.token = null;
+        state.minhasLojas = [];
+        state.carrinhoId = null;
+        render();
+      }
+
+      async function carregarDashboard() {
+        if (!state.minhasLojas.length) {
+          dashboardArea.innerHTML = `
+            <div class="stat-card" style="grid-column: 1 / -1; text-align: center;">
+              <strong>Painel disponível apenas para lojistas</strong>
+              <span class="muted">Crie uma loja ou faça login como dono de loja para ver seu painel financeiro, pedidos e estoque.</span>
+            </div>
+          `;
+          return;
+        }
+
+        // BUG CORRIGIDO: este painel é do VENDEDOR (só aparece pra quem tem
+        // loja), mas antes lia de state.pedidos - que agora é sempre a
+        // lista de compras do próprio usuário como cliente (ver
+        // carregarPedidos()). Os números certos pra cá são os pedidos que a
+        // loja dele recebeu de outros clientes.
+        await carregarPedidosRecebidos();
+        const pedidos = state.pedidosRecebidos || [];
+        const totalPedidos = pedidos.length;
+        const totalAReceber = pedidos
+          .filter((pedido) => pedido.status === 'pendente' || pedido.status === 'confirmado')
+          .reduce((sum, pedido) => sum + Number(pedido.total || 0), 0);
+        const totalRecebido = pedidos
+          .filter((pedido) => pedido.status === 'concluido')
+          .reduce((sum, pedido) => sum + Number(pedido.total || 0), 0);
+        const totalProdutosEstoque = state.produtosGerenciados?.reduce((sum, produto) => sum + Number(produto.quantidade_estoque || 0), 0) || 0;
+        const produtosBaixoEstoque = (state.produtosGerenciados || []).filter((produto) => Number(produto.quantidade_estoque || 0) <= 3).length;
+
+        dashboardArea.innerHTML = `
+          <div class="stat-card">
+            <strong>${state.minhasLojas.length || 0}</strong>
+            <span class="muted">Lojas cadastradas</span>
+          </div>
+          <div class="stat-card">
+            <strong>${totalPedidos}</strong>
+            <span class="muted">Pedidos recebidos</span>
+          </div>
+          <div class="stat-card">
+            <strong>R$ ${totalAReceber.toFixed(2)}</strong>
+            <span class="muted">A receber</span>
+          </div>
+          <div class="stat-card">
+            <strong>R$ ${totalRecebido.toFixed(2)}</strong>
+            <span class="muted">Recebido</span>
+          </div>
+          <div class="stat-card">
+            <strong>${totalProdutosEstoque}</strong>
+            <span class="muted">Unidades em estoque</span>
+          </div>
+          <div class="stat-card">
+            <strong>${produtosBaixoEstoque}</strong>
+            <span class="muted">Produtos baixo estoque</span>
+          </div>
+        `;
+      }
+
+      // Só busca os dados (usado como fallback interno, ex: carregarVitrinePadrao),
+      // sem mexer na tela de listagem de lojas.
+      async function fetchTodasLojas() {
+        try {
+          const response = await fetch('/lojas');
+          const lojas = await response.json();
+          state.lojasTodas = response.ok && Array.isArray(lojas) ? lojas : [];
+        } catch (error) {
+          console.warn('Não foi possível carregar as lojas cadastradas', error);
+        }
+        return state.lojasTodas;
+      }
+
+      // Listagem padrão da tela "Lojas": todas as lojas ativas cadastradas
+      // no sistema, mesmo que nenhuma esteja perto do cliente. É o que
+      // aparece assim que a aba é aberta, antes de qualquer busca ou
+      // filtro de localização.
+      async function carregarTodasLojas() {
+        lojasStatusEl.textContent = 'Todas as lojas cadastradas';
+        lojasArea.innerHTML = '<div class="empty">Carregando lojas...</div>';
+        await fetchTodasLojas();
+        state.lojasExibidas = state.lojasTodas;
+        if (!state.lojasTodas.length) {
+          lojasArea.innerHTML = '<div class="empty">Nenhuma loja cadastrada ainda.</div>';
+          return;
+        }
+        lojasArea.innerHTML = state.lojasTodas.map((loja) => renderCardLoja(loja)).join('');
+      }
+
+      function renderCardLoja(loja) {
+        const badgeProduto = loja.encontrado_por === 'produto' && loja.produto_nome
+          ? `<div class="match-note"><i class="fas fa-tag"></i> Encontrado por: ${loja.produto_nome}</div>`
+          : '';
+        const distancia = loja.distancia_km !== undefined
+          ? `<p class="pill" style="margin-top:8px;"><i class="fas fa-location-dot"></i> ${Number(loja.distancia_km || 0).toFixed(1)} km</p>`
+          : '';
+        return `
+          <div class="store-card" style="margin-bottom:12px;">
+            ${loja.cover_url ? `<img src="${loja.cover_url}" alt="Capa de ${loja.nome}" />` : ''}
+            <h3>${loja.nome}</h3>
+            <p class="muted">${loja.endereco || 'Endereço não informado'}</p>
+            ${badgeProduto}
+            ${distancia}
+            <div class="row">
+              <button class="btn-primary" onclick="window.selecionarLoja('${loja.id}')"><i class="fas fa-eye"></i> Abrir vitrine</button>
+            </div>
+          </div>
+        `;
+      }
+
+      async function buscarLojas(termoBruto) {
+        const termo = (termoBruto || '').trim();
+        if (termo.length < 2) {
+          // Campo vazio ou muito curto: não é erro, só volta pra listagem padrão.
+          return carregarTodasLojas();
+        }
+
+        lojasStatusEl.textContent = `Resultados para "${termo}"`;
+        lojasArea.innerHTML = '<div class="empty">Buscando...</div>';
+        try {
+          const response = await fetch(`/lojas/buscar?q=${encodeURIComponent(termo)}`);
+          const resultado = await response.json();
+          if (!response.ok) {
+            lojasArea.innerHTML = `<div class="empty">${resultado.erro || 'Não foi possível buscar agora.'}</div>`;
+            return;
+          }
+          const lojas = Array.isArray(resultado) ? resultado : [];
+          state.lojasExibidas = lojas;
+          if (!lojas.length) {
+            lojasArea.innerHTML = '<div class="empty">Nenhuma loja ou produto encontrado para essa busca.</div>';
+            return;
+          }
+          lojasArea.innerHTML = lojas.map((loja) => renderCardLoja({
+            ...loja,
+            encontrado_por: loja.produtos_correspondentes?.length ? 'produto' : 'loja',
+            produto_nome: loja.produtos_correspondentes?.join(', ')
+          })).join('');
+        } catch (error) {
+          lojasArea.innerHTML = '<div class="empty">Não foi possível buscar agora.</div>';
+        }
+      }
+
+      async function carregarLojasProximas(raioKm = 15) {
+        if (!navigator.geolocation) {
+          lojasArea.innerHTML = '<div class="empty">Geolocalização não suportada pelo navegador. Exibindo todas as lojas.</div>';
+          await carregarTodasLojas();
+          return;
+        }
+
+        lojasStatusEl.textContent = 'Buscando sua localização...';
+        lojasArea.innerHTML = '<div class="empty">Buscando lojas perto de você...</div>';
+
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+          const { latitude, longitude } = pos.coords;
+          try {
+            const response = await fetch(`/lojas/proximas?lat=${latitude}&lng=${longitude}&raio_km=${raioKm}`);
+            const lojas = await response.json();
+            if (!response.ok) {
+              lojasStatusEl.textContent = '';
+              lojasArea.innerHTML = `<div class="empty">${lojas.erro || 'Não foi possível buscar lojas próximas.'}</div>`;
+              return;
+            }
+            state.lojas = Array.isArray(lojas) ? lojas : [];
+            state.lojasExibidas = state.lojas;
+            lojasStatusEl.textContent = `Lojas em até ${raioKm} km de você`;
+            if (!state.lojas.length) {
+              lojasArea.innerHTML = '<div class="empty">Nenhuma loja próxima foi encontrada para este raio.</div>';
+              return;
+            }
+            lojasArea.innerHTML = state.lojas.map((loja) => renderCardLoja(loja)).join('');
+          } catch (error) {
+            lojasStatusEl.textContent = '';
+            lojasArea.innerHTML = '<div class="empty">Não foi possível buscar lojas próximas agora. Exibindo todas as lojas.</div>';
+            await carregarTodasLojas();
+          }
+        }, async () => {
+          lojasStatusEl.textContent = '';
+          lojasArea.innerHTML = '<div class="empty">Permita a localização para ver lojas próximas. Exibindo todas as lojas.</div>';
+          await carregarTodasLojas();
+        });
+      }
+
+      async function carregarMinhasLojas() {
+        if (!state.usuario || !state.token) {
+          minhasLojasArea.innerHTML = '<div class="empty">Faça login para visualizar suas lojas.</div>';
+          produtoLojaId.innerHTML = '<option value="">Primeiro crie uma loja</option>';
+          state.minhasLojas = [];
+          render();
+          return;
+        }
+        const response = await fetch('/lojas/minhas', { headers: { Authorization: `Bearer ${state.token}` } });
+        const lojas = await response.json();
+        state.minhasLojas = Array.isArray(lojas) ? lojas : [];
+        // Re-renderiza aqui: é só agora que sabemos se o usuário é vendedor
+        // (tem loja) ou não. Antes o grupo "Vendedor" no menu aparecia assim
+        // que a pessoa fazia login, mesmo sem loja nenhuma criada ainda.
+        render();
+        if (!state.minhasLojas.length) {
+          minhasLojasArea.innerHTML = '<div class="empty">Você ainda não possui lojas cadastradas.</div>';
+          produtoLojaId.innerHTML = '<option value="">Crie uma loja para cadastrar produtos</option>';
+          return;
+        }
+        const produtoLojaAnterior = produtoLojaId.value;
+        produtoLojaId.innerHTML = state.minhasLojas.map((loja) => `<option value="${loja.id}">${loja.nome}</option>`).join('');
+        if (produtoLojaAnterior && state.minhasLojas.some((l) => l.id === produtoLojaAnterior)) {
+          produtoLojaId.value = produtoLojaAnterior;
+        }
+        minhasLojasArea.innerHTML = state.minhasLojas.map((loja) => `
+          <div class="store-card" style="margin-bottom:12px;">
+            ${loja.cover_url ? `<img src="${loja.cover_url}" alt="Capa de ${loja.nome}" />` : ''}
+            <h3>${loja.nome}</h3>
+            <p class="muted">${loja.descricao || 'Sem descrição'}</p>
+            <p class="muted">WhatsApp: ${loja.whatsapp || '-'}</p>
+            <div class="row">
+              <button class="btn-secondary" onclick="window.selecionarLoja('${loja.id}')"><i class="fas fa-eye"></i> Abrir vitrine</button>
+              <button class="btn-secondary" onclick="window.editarLoja('${loja.id}')"><i class="fas fa-edit"></i> Editar loja</button>
+              <button class="btn-secondary" onclick="window.compartilharVitrine('${loja.id}')"><i class="fas fa-share-nodes"></i> Compartilhar</button>
+            </div>
+          </div>
+        `).join('');
+        await carregarDashboard();
+        await carregarProdutosGerenciados(produtoLojaId.value);
+
+        if (!state.lojaSelecionadaManual) {
+          await carregarVitrinePadrao();
+        }
+      }
+
+      function produtoEstaDisponivel(produto) {
+        if (!produto) return false;
+        if (produto.ativo === false) return false;
+        if (produto.disponivel !== undefined && produto.disponivel !== null) {
+          return Boolean(produto.disponivel);
+        }
+        return Number(produto.quantidade_estoque) > 0;
+      }
+
+      async function carregarVitrine(lojaId) {
+        if (!lojaId) return;
+        vitrineArea.innerHTML = '<div class="empty">Carregando vitrine...</div>';
+
+        let produtosResponse, lojaResponse, produtos, loja;
+        try {
+          [produtosResponse, lojaResponse] = await Promise.all([
+            fetch(`/produtos/loja/${lojaId}/vitrine`),
+            fetch(`/lojas/${lojaId}`)
+          ]);
+          produtos = await produtosResponse.json();
+          loja = await lojaResponse.json().catch(() => null);
+        } catch (error) {
+          console.error('Erro ao carregar a vitrine', error);
+          vitrineArea.innerHTML = '<div class="empty">Não foi possível carregar esta vitrine agora. Toque em "Atualizar" para tentar de novo.</div>';
+          return;
+        }
+
+        if (!produtosResponse.ok) {
+          vitrineArea.innerHTML = `<div class="empty">${produtos?.erro || 'Não foi possível carregar os produtos desta loja.'}</div>`;
+          return;
+        }
+
+        const souDono = state.minhasLojas.some((l) => l.id === lojaId);
+        state.produtosVitrine = Array.isArray(produtos) ? produtos : [];
+
+        if (souDono) {
+          await carregarProdutosGerenciados(lojaId);
+        }
+
+        const primeiraFoto = Array.isArray(produtos) && produtos[0]?.produto_fotos?.length ? produtos[0].produto_fotos[0].url : null;
+        const heroHtml = loja ? `
+          <div class="store-hero-card" style="background: linear-gradient(135deg, ${loja.primary_color || '#2563eb'}, ${loja.secondary_color || '#0f766e'});">
+            <div class="hero-copy">
+              ${souDono ? '<span class="owner-badge"><i class="fas fa-store-alt"></i> Sua loja</span><br>' : ''}
+              <h3>${loja.hero_title || loja.nome}</h3>
+              <p>${loja.hero_subtitle || loja.descricao || 'Vitrine personalizada com logo, cores e identidade visual.'}</p>
+            </div>
+            ${loja.logo_url ? `<img class="hero-logo" src="${loja.logo_url}" alt="Logo ${loja.nome}" />` : ''}
+            <div class="row" style="margin-top:0;">
+              <button class="btn-secondary" onclick="window.compartilharVitrine('${loja.id}')"><i class="fas fa-share-nodes"></i> Compartilhar</button>
+              ${souDono ? `<button class="btn-secondary" onclick="window.location.hash='cadastrar-produto'; window.showPage && window.showPage('cadastrar-produto')"><i class="fas fa-box-open"></i> Gerenciar produtos</button>` : ''}
+            </div>
+          </div>
+        ` : '';
+
+        if (!state.produtosVitrine.length) {
+          vitrineArea.innerHTML = `${heroHtml}<div class="empty">Essa loja ainda não possui produtos em destaque.</div>`;
+          return;
+        }
+
+        vitrineArea.innerHTML = `${heroHtml}${state.produtosVitrine.map((produto) => {
+          const imagem = produto.produto_fotos?.length ? produto.produto_fotos[0].url : null;
+          return `
+            <div id="produto-${produto.id}" class="product-card" style="margin-bottom:12px;">
+              ${imagem ? `<img src="${imagem}" alt="${produto.nome}" />` : ''}
+              <div class="pill"><i class="fas fa-tag"></i> R$ ${Number(produto.preco).toFixed(2)}</div>
+              <h3 style="margin-top:10px;">${produto.nome}</h3>
+              <p class="muted">${produto.descricao || 'Sem descrição'}</p>
+              <p class="muted">${produtoEstaDisponivel(produto) ? 'Disponível' : 'Indisponível'}</p>
+              <div class="row">
+                ${souDono ? `
+                  <button class="btn-secondary" onclick="window.editarProdutoPorId('${produto.id}')"><i class="fas fa-edit"></i> Editar</button>
+                  <button class="btn-danger" onclick="window.excluirProduto('${produto.id}', '${lojaId}')"><i class="fas fa-trash"></i> Excluir</button>
+                  <button class="btn-secondary" onclick="window.compartilharProduto('${produto.id}', '${lojaId}')"><i class="fas fa-share-alt"></i> Compartilhar</button>
+                ` : `
+                  <div class="qty-row">
+                    <input type="number" class="qty-input" id="qty-${produto.id}" value="1" min="1" step="1" aria-label="Quantidade" />
+                    <button class="btn-primary" onclick="window.adicionarCarrinho('${produto.id}', '${lojaId}', '${produto.preco}')"><i class="fas fa-cart-plus"></i> Adicionar</button>
+                  </div>
+                  <button class="btn-secondary" onclick="window.compartilharProduto('${produto.id}', '${lojaId}')"><i class="fas fa-share-alt"></i> Compartilhar</button>
+                `}
+              </div>
+            </div>
+          `;
+        }).join('')}`;
+
+        const params = new URLSearchParams(window.location.search);
+        const produtoId = params.get('produto');
+        if (produtoId) {
+          const target = document.getElementById(`produto-${produtoId}`);
+          target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+
+      async function carregarVitrinePadrao() {
+        if (!state.lojasTodas.length) await fetchTodasLojas();
+        const params = new URLSearchParams(window.location.search);
+        const lojaParam = params.get('loja');
+
+        let lojaAlvo = lojaParam;
+        if (!lojaAlvo) {
+          if (!state.lojaSelecionadaManual && state.minhasLojas.length) {
+            lojaAlvo = state.minhasLojas[0].id;
+          } else {
+            lojaAlvo = state.lojaSelecionada || state.lojasTodas?.[0]?.id || state.lojas?.[0]?.id;
+          }
+        }
+
+        if (lojaAlvo) {
+          state.lojaSelecionada = lojaAlvo;
+          await carregarVitrine(lojaAlvo);
+          await carregarCarrinho();
+        }
+      }
+
+      async function carregarCarrinho() {
+        if (!state.usuario || !state.token) {
+          carrinhoArea.innerHTML = '<div class="empty">Faça login para usar o carrinho.</div>';
+          return;
+        }
+        if (!state.lojaSelecionada) {
+          carrinhoArea.innerHTML = '<div class="empty">Escolha uma loja para ver o carrinho.</div>';
+          return;
+        }
+        const response = await fetch(`/carrinho/loja/${state.lojaSelecionada}`, { headers: { Authorization: `Bearer ${state.token}` } });
+        const carrinho = await response.json();
+        if (!response.ok) {
+          carrinhoArea.innerHTML = `<div class="empty">${carrinho.erro || 'Não foi possível carregar o carrinho.'}</div>`;
+          return;
+        }
+        state.carrinhoId = carrinho.id;
+        if (!carrinho?.carrinho_itens?.length) {
+          carrinhoArea.innerHTML = '<div class="empty">Seu carrinho está vazio.</div>';
+          return;
+        }
+        const total = carrinho.carrinho_itens.reduce((sum, item) => sum + Number(item.preco_unitario) * item.quantidade, 0);
+        carrinhoArea.innerHTML = `
+          <div class="store-card">
+            <h3>Itens no carrinho</h3>
+            <ul>${carrinho.carrinho_itens.map((item) => `<li>${item.quantidade}x ${item.nome_produto} — R$ ${(Number(item.preco_unitario) * item.quantidade).toFixed(2)}</li>`).join('')}</ul>
+            <p style="margin-top:12px;"><strong>Total:</strong> R$ ${total.toFixed(2)}</p>
+            <div class="card" style="margin-top:12px; background:var(--sb-accent-dim); border-color:var(--sb-border);">
+              <p class="muted" style="margin:0;"><strong>O pedido será enviado direto para o WhatsApp da loja.</strong> A forma de pagamento e a baixa serão registradas pelo vendedor quando o pedido for recebido.</p>
+            </div>
+            <div class="row" style="margin-top:12px;">
+              <button class="btn-primary" onclick="window.finalizarPedido()"><i class="fas fa-check-circle"></i> Finalizar pedido</button>
+            </div>
+          </div>
+        `;
+      }
+
+      function formatarData(data) {
+        if (!data) return '—';
+        const parsed = new Date(data);
+        if (Number.isNaN(parsed.getTime())) return '—';
+        return parsed.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+      }
+
+      // somenteLeitura=true é usado na tela "Pedidos" do CLIENTE (Compras):
+      // o comprador não deve poder registrar o próprio pagamento como
+      // recebido — isso é uma ação do vendedor, feita em "Contas a receber".
+      function renderBaixaPedido(pedido, somenteLeitura = false) {
+        if (somenteLeitura) return '';
+        if (pedido.status === 'concluido') return '';
+
+        // BUG CORRIGIDO: quando o pedido já tem parcelas (o que acontece
+        // desde a criação, via finalizar_pedido), este painel de "baixa em
+        // bloco" ficava visível ao lado do painel de parcelas individuais.
+        // Usar o botão "Marcar como pago" aqui chama PATCH /:id/status, que
+        // só cria parcelas novas quando forma_pagamento é 'A prazo' E o
+        // campo de parcelas é preenchido — em qualquer outro caso (ex:
+        // deixar no "Dinheiro" padrão), ele marca TODAS as parcelas
+        // existentes como pagas de uma vez. Por isso, se as parcelas já
+        // existem, esse painel não aparece mais: a única forma de dar baixa
+        // passa a ser uma por uma, no painel de parcelas abaixo.
+        const parcelasExistentes = Array.isArray(pedido.pedido_parcelas) ? pedido.pedido_parcelas : [];
+        if (parcelasExistentes.length > 0) return '';
+
+        const hoje = new Date().toISOString().split('T')[0];
+
+        return `
+          <div class="card" style="margin-top:10px; padding:12px; border:1px solid var(--sb-border); border-radius:10px; background:var(--sb-elevated);">
+            <p class="muted" style="margin:0 0 8px;"><strong>Baixa do pedido</strong></p>
+            <div class="field">
+              <label>Método de recebimento</label>
+              <select id="pedidoMetodo-${pedido.id}">
+                <option value="Dinheiro">Dinheiro</option>
+                <option value="Pix">Pix</option>
+                <option value="Cartão">Cartão</option>
+                <option value="WhatsApp">WhatsApp</option>
+                <option value="A prazo">A prazo</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Data da baixa</label>
+              <input type="date" id="pedidoData-${pedido.id}" value="${hoje}" />
+            </div>
+            <div class="field">
+              <label>Número de parcelas</label>
+              <input type="number" min="1" id="pedidoParcelas-${pedido.id}" value="${pedido.parcelas || 1}" />
+            </div>
+            <div class="field">
+              <label>Intervalo de vencimento (dias)</label>
+              <select id="pedidoIntervalo-${pedido.id}">
+                <option value="30">30 dias</option>
+                <option value="60">60 dias</option>
+                <option value="90">90 dias</option>
+                <option value="120">120 dias</option>
+                <option value="150">150 dias</option>
+              </select>
+            </div>
+            <div class="row" style="margin-top:8px; justify-content:flex-end;">
+              <button class="btn-primary" type="button" onclick="window.atualizarStatusPedido('${pedido.id}', 'concluido')">Marcar como pago</button>
+            </div>
+          </div>
+        `;
+      }
+
+      function renderParcelasPedido(pedido, somenteLeitura = false) {
+        const parcelas = Array.isArray(pedido.pedido_parcelas) ? pedido.pedido_parcelas : [];
+        if (!parcelas.length) return '';
+
+        const mostrarParcelas = pedido.forma_pagamento === 'A prazo' || Number(pedido.parcelas || 1) > 1;
+        if (!mostrarParcelas) return '';
+
+        const hoje = new Date().toISOString().split('T')[0];
+
+        return `
+          <div style="margin-top:10px; padding-top:10px; border-top: 1px solid var(--sb-border);">
+            <p class="muted"><strong>Parcelas</strong></p>
+            ${parcelas.map((parcela) => `
+              <div style="margin-top:8px; padding:10px; border:1px solid var(--sb-border); border-radius:10px; background:var(--sb-elevated);">
+                <p class="muted"><strong>Parcela ${parcela.numero || 1}</strong> • R$ ${Number(parcela.valor || 0).toFixed(2)}</p>
+                <p class="muted">Vencimento: ${parcela.boleto_vencimento ? new Date(parcela.boleto_vencimento).toLocaleDateString('pt-BR') : '—'}</p>
+                <p class="muted">Status: ${parcela.status === 'pago' ? 'Paga' : 'Pendente'}</p>
+                <p class="muted">Forma de pagamento: ${parcela.forma_pagamento || 'Ainda não definida'}</p>
+                <p class="muted">Criada em: ${formatarData(parcela.created_at)}</p>
+                <p class="muted">${parcela.status === 'pago' ? `Baixada em: ${formatarData(parcela.pago_em)}` : 'Aguardando baixa'}</p>
+                <div class="row" style="margin-top:8px; gap:8px; justify-content:flex-end; flex-wrap:wrap;">
+                  <button class="btn-secondary" type="button" onclick="window.downloadBoletoParcela('${pedido.id}', '${parcela.id}')">Baixar boleto</button>
+                  ${parcela.status === 'pago' || somenteLeitura ? '' : `
+                    <button class="btn-primary" type="button" onclick="window.marcarParcelaPaga('${pedido.id}', '${parcela.id}')">Registrar baixa</button>
+                  `}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      // "Pedidos" (menu Compras) é a tela do CLIENTE: minhas próprias
+      // compras, sempre - mesmo que eu também seja vendedor em outra loja.
+      //
+      // BUG CORRIGIDO: antes, sempre que o usuário tinha QUALQUER loja
+      // própria (era vendedor), esta tela passava a usar owner_view=true e
+      // mostrava os pedidos RECEBIDOS pela loja dele, escondendo as
+      // compras que ele mesmo fez como cliente em qualquer loja. Isso
+      // também fazia "Contas a receber"/"Contas pagas" reaproveitarem esse
+      // mesmo cache (state.pedidos) quando ele já estivesse populado,
+      // misturando as duas visões. Agora cada visão tem seu próprio cache:
+      // state.pedidos (minhas compras) e state.pedidosRecebidos (pedidos
+      // que minha loja recebeu de outros clientes) - ver
+      // carregarPedidosRecebidos() logo abaixo.
+      async function carregarPedidos() {
+        if (!state.usuario || !state.token) {
+          pedidosArea.innerHTML = '<div class="empty">Faça login para ver pedidos.</div>';
+          return;
+        }
+        const response = await fetch('/pedidos', { headers: { Authorization: `Bearer ${state.token}` } });
+        const pedidos = await response.json();
+        if (!response.ok) {
+          state.pedidos = [];
+          pedidosArea.innerHTML = `<div class="empty">${pedidos.erro || 'Não foi possível carregar os pedidos.'}</div>`;
+          await carregarDashboard();
+          return;
+        }
+        if (!Array.isArray(pedidos) || !pedidos.length) {
+          state.pedidos = [];
+          pedidosArea.innerHTML = '<div class="empty">Você ainda não fez nenhum pedido.</div>';
+          await carregarDashboard();
+          return;
+        }
+        state.pedidos = pedidos;
+        pedidosArea.innerHTML = pedidos.map((pedido) => `
+          <div class="store-card" style="margin-bottom:12px;">
+            <h3>Pedido #${String(pedido.id).slice(0, 8)}</h3>
+            <p class="muted">Loja: ${pedido.lojas?.nome || 'Não disponível'}</p>
+            <p class="muted">Status: ${pedido.status}</p>
+            <p class="muted">Pagamento: ${pedido.forma_pagamento || 'WhatsApp'} • ${pedido.parcelas || 1} parcela(s)</p>
+            <p class="muted">Pedido criado em: ${formatarData(pedido.created_at)}</p>
+            <p class="muted">Total: R$ ${Number(pedido.total).toFixed(2)}</p>
+            ${pedido.pedido_itens?.length ? `<ul style="margin-top:8px;">${pedido.pedido_itens.map((item) => `<li>${item.quantidade}x ${item.nome_produto} — R$ ${Number(item.preco_unitario).toFixed(2)}</li>`).join('')}</ul>` : ''}
+            ${renderParcelasPedido(pedido, true)}
+            ${pedido.status === 'concluido' ? `
+              <div class="row" style="margin-top:8px; justify-content:flex-end; gap:8px; flex-wrap:wrap;">
+                <button class="btn-secondary" type="button" onclick="window.downloadPdf('${pedido.id}', 'pagamento')">Baixar comprovante em PDF</button>
+                ${pedido.forma_pagamento === 'A prazo' ? `<button class="btn-secondary" type="button" onclick="window.downloadPdf('${pedido.id}', 'parcelas')">Baixar boletos</button>` : ''}
+              </div>
+            ` : ''}
+          </div>
+        `).join('');
+        await carregarDashboard();
+      }
+
+      // Pedidos RECEBIDOS pela(s) loja(s) do usuário (visão vendedor).
+      // Sempre busca com owner_view=true e guarda num cache separado do
+      // state.pedidos (compras do cliente) - são conjuntos de dados
+      // diferentes e nunca devem se misturar.
+      async function carregarPedidosRecebidos() {
+        if (!state.usuario || !state.token) {
+          state.pedidosRecebidos = [];
+          return [];
+        }
+        const response = await fetch('/pedidos?owner_view=true', { headers: { Authorization: `Bearer ${state.token}` } });
+        const pedidos = await response.json();
+        state.pedidosRecebidos = response.ok && Array.isArray(pedidos) ? pedidos : [];
+        return state.pedidosRecebidos;
+      }
+
+      window.atualizarStatusPedido = async (pedidoId, status) => {
+        if (!state.usuario || !state.token) return alert('Faça login para atualizar pedidos.');
+
+        const select = document.getElementById(`pedidoMetodo-${pedidoId}`);
+        const dataInput = document.getElementById(`pedidoData-${pedidoId}`);
+        const formaPagamento = (select?.value || '').trim() || 'Dinheiro';
+        const parcelasInput = document.getElementById(`pedidoParcelas-${pedidoId}`);
+        const parcelasVal = parcelasInput ? Number(parcelasInput.value) : undefined;
+        const dataBaixa = dataInput?.value ? `${dataInput.value}T12:00:00` : new Date().toISOString();
+
+        const payload = { status };
+        if (status === 'concluido') {
+          payload.forma_pagamento = formaPagamento;
+          payload.pago_em = dataBaixa;
+          if (formaPagamento === 'A prazo' && parcelasVal && parcelasVal > 0) {
+            payload.parcelas = parcelasVal;
+            const intervaloInput = document.getElementById(`pedidoIntervalo-${pedidoId}`);
+            const intervaloVal = Number(intervaloInput?.value || 30);
+            payload.intervalo_dias = [30, 60, 90, 120, 150].includes(intervaloVal) ? intervaloVal : 30;
+          }
+        }
+
+        const response = await fetch(`/pedidos/${pedidoId}/status`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${state.token}`
+          },
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (!response.ok) return alert(result.erro || 'Não foi possível atualizar o pedido.');
+        // Estas ações (marcar pedido/parcela como pago) só ficam visíveis em
+        // telas de vendedor (Contas a receber/pagas), então atualizamos o
+        // cache de pedidos RECEBIDOS pela loja - nunca o cache de compras
+        // do próprio cliente.
+        await carregarPedidosRecebidos();
+        if (window.location.hash.replace('#', '') === 'contas-a-receber') await carregarContasAReceber();
+        if (window.location.hash.replace('#', '') === 'contas-pagas') await carregarContasPagas();
+        alert('Pedido atualizado com sucesso.');
+      }
+
+      window.marcarParcelaPaga = async (pedidoId, parcelaId) => {
+        if (!state.usuario || !state.token) return alert('Faça login para registrar a baixa da parcela.');
+
+        const select = document.getElementById(`parcelaMetodo-${pedidoId}-${parcelaId}`);
+        const dataInput = document.getElementById(`parcelaData-${pedidoId}-${parcelaId}`);
+        if (!select || !dataInput) return alert('Não foi possível localizar os campos da parcela.');
+
+        const response = await fetch(`/pedidos/${pedidoId}/parcela/${parcelaId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${state.token}`
+          },
+          body: JSON.stringify({
+            status: 'pago',
+            forma_pagamento: select.value || 'Dinheiro',
+            pago_em: dataInput.value ? `${dataInput.value}T12:00:00` : new Date().toISOString()
+          })
+        });
+
+        const result = await response.json();
+        if (!response.ok) return alert(result.erro || 'Não foi possível registrar a baixa da parcela.');
+
+        await carregarPedidosRecebidos();
+        if (window.location.hash.replace('#', '') === 'contas-a-receber') await carregarContasAReceber();
+        if (window.location.hash.replace('#', '') === 'contas-pagas') await carregarContasPagas();
+        alert('Parcela marcada como paga.');
+      };
+
+      window.downloadPdf = async (pedidoId, tipo = 'pagamento') => {
+        if (!state.usuario || !state.token) return alert('Faça login para baixar o PDF.');
+        const url = tipo === 'parcelas' ? `/pedidos/${pedidoId}/pdf-parcelas` : `/pedidos/${pedidoId}/pdf-pagamento`;
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${state.token}` } });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          return alert(err.erro || 'Não foi possível baixar o PDF.');
+        }
+        const blob = await res.blob();
+        const filename = `${tipo === 'parcelas' ? 'boleto-parcelas' : 'pagamento'}-${pedidoId}.pdf`;
+        const urlBlob = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = urlBlob;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(urlBlob);
+      };
+
+      window.downloadBoletoParcela = async (pedidoId, parcelaId) => {
+        if (!state.usuario || !state.token) return alert('Faça login para baixar o boleto.');
+        const res = await fetch(`/pedidos/${pedidoId}/pdf-boleto/${parcelaId}`, { headers: { Authorization: `Bearer ${state.token}` } });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          return alert(err.erro || 'Não foi possível baixar o boleto.');
+        }
+        const blob = await res.blob();
+        const filename = `boleto-parcela-${parcelaId}.pdf`;
+        const urlBlob = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = urlBlob;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(urlBlob);
+      };
+
+      async function carregarContasAReceber() {
+        if (!state.usuario || !state.token) {
+          contasReceberArea.innerHTML = '<div class="empty">Faça login para ver contas a receber.</div>';
+          return;
+        }
+        // Sempre busca fresco (não reaproveita state.pedidos, que é a
+        // compra do cliente - são visões diferentes, ver carregarPedidos()).
+        await carregarPedidosRecebidos();
+        const pendentes = (state.pedidosRecebidos || []).filter((pedido) => {
+          const parcelas = Array.isArray(pedido.pedido_parcelas) ? pedido.pedido_parcelas : [];
+          return parcelas.some((parcela) => parcela.status !== 'pago') || ['pendente', 'confirmado'].includes(pedido.status);
+        });
+        if (!pendentes.length) {
+          contasReceberArea.innerHTML = '<div class="empty">Nenhuma conta a receber no momento.</div>';
+          return;
+        }
+        contasReceberArea.innerHTML = pendentes.map((pedido) => {
+          const parcelas = Array.isArray(pedido.pedido_parcelas) ? pedido.pedido_parcelas : [];
+          const pendentesParcelas = parcelas.filter((parcela) => parcela.status !== 'pago');
+          const totalAReceber = pendentesParcelas.reduce((sum, parcela) => sum + Number(parcela.valor || 0), 0);
+          // BUG CORRIGIDO: com 2+ parcelas, este botão "Marcar como pago"
+          // dava baixa em TODAS de uma vez (o pedido não tem os campos de
+          // forma de pagamento/parcelas deste card, então sempre caía no
+          // caminho de "Dinheiro", que quita tudo). Com só 1 parcela isso
+          // equivale à baixa individual, então continua liberado; com 2+,
+          // a baixa passa a ser feita uma por uma no painel de parcelas.
+          const podeMarcarPedidoInteiro = pedido.status !== 'concluido' && parcelas.length <= 1;
+          return `
+            <div class="store-card" style="margin-bottom:12px;">
+              <h3>Pedido #${String(pedido.id).slice(0, 8)}</h3>
+              <p class="muted">Cliente: ${pedido.cliente_nome || 'Não informado'}</p>
+              <p class="muted">Telefone: ${pedido.cliente_telefone || 'Não disponível'}</p>
+              <p class="muted">Email: ${pedido.cliente_email || 'Não disponível'}</p>
+              <p class="muted">Total pendente: R$ ${totalAReceber.toFixed(2)}</p>
+              <p class="muted">Pagamento: ${pedido.forma_pagamento || 'WhatsApp'} • ${pedido.parcelas || 1} parcela(s)</p>
+              <p class="muted">Pedido criado em: ${formatarData(pedido.created_at)}</p>
+              ${renderParcelasPedido(pedido)}
+              ${podeMarcarPedidoInteiro ? `<div class="row" style="margin-top:12px; justify-content:flex-end; gap:8px;"><button class="btn-primary" type="button" onclick="window.atualizarStatusPedido('${pedido.id}', 'concluido')">Marcar como pago</button></div>` : ''}
+            </div>
+          `;
+        }).join('');
+      }
+
+      async function carregarContasPagas() {
+        if (!state.usuario || !state.token) {
+          contasPagasArea.innerHTML = '<div class="empty">Faça login para ver contas pagas.</div>';
+          return;
+        }
+        await carregarPedidosRecebidos();
+        const pagos = (state.pedidosRecebidos || []).filter((pedido) => {
+          const parcelas = Array.isArray(pedido.pedido_parcelas) ? pedido.pedido_parcelas : [];
+          return parcelas.some((parcela) => parcela.status === 'pago') || pedido.status === 'concluido';
+        });
+        if (!pagos.length) {
+          contasPagasArea.innerHTML = '<div class="empty">Nenhuma conta paga no momento.</div>';
+          return;
+        }
+        contasPagasArea.innerHTML = pagos.map((pedido) => `
+          <div class="store-card" style="margin-bottom:12px;">
+            <h3>Pedido #${String(pedido.id).slice(0, 8)}</h3>
+            <p class="muted">Cliente: ${pedido.cliente_nome || 'Não informado'}</p>
+            <p class="muted">Total pago: R$ ${Number(pedido.pedido_parcelas?.filter((parcela) => parcela.status === 'pago').reduce((sum, parcela) => sum + Number(parcela.valor || 0), 0) || pedido.total).toFixed(2)}</p>
+            <p class="muted">Pagamento: ${pedido.forma_pagamento || 'WhatsApp'} • ${pedido.parcelas || 1} parcela(s)</p>
+            <p class="muted">Pedido criado em: ${formatarData(pedido.created_at)}</p>
+            ${renderParcelasPedido(pedido)}
+            ${pedido.status === 'concluido' ? `
+              <div class="row" style="margin-top:8px; justify-content:flex-end; gap:8px; flex-wrap:wrap;">
+                <button class="btn-secondary" type="button" onclick="window.downloadPdf('${pedido.id}', 'pagamento')">Baixar comprovante em PDF</button>
+                ${pedido.forma_pagamento === 'A prazo' ? `<button class="btn-secondary" type="button" onclick="window.downloadPdf('${pedido.id}', 'parcelas')">Baixar boletos</button>` : ''}
+              </div>
+            ` : ''}
+          </div>
+        `).join('');
+      }
+
+      async function carregarRelatorioEstoque() {
+        if (!state.usuario || !state.token) {
+          estoqueArea.innerHTML = '<div class="empty">Faça login para ver o relatório de estoque.</div>';
+          return;
+        }
+        const lojaId = state.produtoLojaId?.value || state.lojaSelecionada || state.minhasLojas?.[0]?.id;
+        if (!lojaId) {
+          estoqueArea.innerHTML = '<div class="empty">Selecione sua loja para ver o relatório de estoque.</div>';
+          return;
+        }
+        const response = await fetch(`/produtos/loja/${lojaId}/gerenciar`, { headers: { Authorization: `Bearer ${state.token}` } });
+        const produtos = await response.json();
+        if (!Array.isArray(produtos) || !produtos.length) {
+          estoqueArea.innerHTML = '<div class="empty">Nenhum dado de estoque disponível.</div>';
+          return;
+        }
+        estoqueArea.innerHTML = produtos.map((produto) => `
+          <div class="store-card" style="margin-bottom:12px;">
+            <h3>${produto.nome}</h3>
+            <p class="muted">Estoque: ${produto.quantidade_estoque ?? 0}</p>
+            <p class="muted">Preço: R$ ${Number(produto.preco).toFixed(2)}</p>
+            <p class="muted">Status: ${produto.ativo ? 'Ativo' : 'Inativo'}</p>
+          </div>
+        `).join('');
+      }
+
+      async function carregarProdutosGerenciados(lojaId) {
+        if (!state.usuario || !state.token || !lojaId) {
+          produtosGerenciarArea.innerHTML = '<div class="empty">Selecione uma loja para gerenciar os produtos.</div>';
+          state.produtosGerenciados = [];
+          return;
+        }
+        const response = await fetch(`/produtos/loja/${lojaId}/gerenciar`, { headers: { Authorization: `Bearer ${state.token}` } });
+        const produtos = await response.json();
+        state.produtosGerenciados = Array.isArray(produtos) ? produtos : [];
+        if (!state.produtosGerenciados.length) {
+          produtosGerenciarArea.innerHTML = '<div class="empty">Nenhum produto cadastrado nesta loja ainda.</div>';
+          return;
+        }
+        produtosGerenciarArea.innerHTML = state.produtosGerenciados.map((produto) => `
+          <div class="store-card" style="margin-bottom:10px;">
+            <h4>${produto.nome}</h4>
+            <p class="muted">R$ ${Number(produto.preco).toFixed(2)} · Estoque: ${produto.quantidade_estoque ?? 0} · ${produto.ativo ? 'Ativo' : 'Inativo'}</p>
+            <div class="row">
+              <button class="btn-secondary" onclick="window.editarProdutoPorId('${produto.id}')"><i class="fas fa-edit"></i> Editar</button>
+              <button class="btn-danger" onclick="window.excluirProduto('${produto.id}', '${lojaId}')"><i class="fas fa-trash"></i> Excluir</button>
+              <button class="btn-secondary" onclick="window.compartilharProduto('${produto.id}', '${lojaId}')"><i class="fas fa-share-alt"></i> Compartilhar</button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      function resetProdutoForm() {
+        produtoForm.reset();
+        document.getElementById('produtoQuantidade').value = '0';
+        document.getElementById('produtoPreco').value = '';
+        document.getElementById('produtoFotos').value = '';
+        document.getElementById('produtoAtivo').checked = true;
+        document.getElementById('produtoFotoPreview').src = '';
+        document.getElementById('produtoFotoPreviewWrapper').style.display = 'none';
+        state.produtoEditandoId = null;
+        document.getElementById('produtoSubmitButton').innerHTML = '<i class="fas fa-save"></i> Salvar produto';
+        produtoCancelarEdicaoBtn.style.display = 'none';
+      }
+
+      function preencherFormularioProduto(produto) {
+        if (produto.loja_id && produtoLojaId) {
+          produtoLojaId.value = produto.loja_id;
+        }
+        document.getElementById('produtoNome').value = produto.nome || '';
+        document.getElementById('produtoDescricao').value = produto.descricao || '';
+        document.getElementById('produtoPreco').value = produto.preco || '';
+        document.getElementById('produtoQuantidade').value = produto.quantidade_estoque ?? 0;
+        document.getElementById('produtoAtivo').checked = produto.ativo !== false;
+        const fotoPreviewUrl = produto.produto_fotos?.[0]?.url || '';
+        document.getElementById('produtoFotoPreview').src = fotoPreviewUrl;
+        document.getElementById('produtoFotoPreviewWrapper').style.display = fotoPreviewUrl ? '' : 'none';
+        document.getElementById('produtoFotos').value = '';
+        state.produtoEditandoId = produto.id;
+        document.getElementById('produtoSubmitButton').innerHTML = '<i class="fas fa-save"></i> Salvar alterações';
+        produtoCancelarEdicaoBtn.style.display = '';
+        showPage('cadastrar-produto');
+      }
+
+      function showPage(page) {
+        const targetPage = page || 'home';
+        document.querySelectorAll('.page-section').forEach((section) => section.classList.remove('active'));
+        const targetSection = document.getElementById(`page-${targetPage}`);
+        if (!targetSection) {
+          console.warn('[NAVEGAÇÃO] Página não encontrada:', targetPage);
+          return;
+        }
+        targetSection.classList.add('active');
+        document.querySelectorAll('.nav-item[data-page]').forEach((item) => item.classList.toggle('active', item.dataset.page === targetPage));
+        closeSidebar();
+        history.replaceState(null, '', `#${targetPage}`);
+        const titles = {
+          home: { title: 'Início', subtitle: 'Conecte clientes, cadastre produtos e converta pedidos em WhatsApp.' },
+          lojas: { title: 'Lojas próximas', subtitle: 'Busque por nome, produto ou veja negócios perto de você.' },
+          vitrine: { title: 'Vitrine', subtitle: 'Navegue pelos produtos da loja selecionada.' },
+          'minhas-lojas': { title: 'Minhas lojas', subtitle: 'Crie sua loja e organize seus produtos.' },
+          'cadastrar-produto': { title: 'Cadastrar produto', subtitle: 'Publique itens com foto, preço e estoque.' },
+          carrinho: { title: 'Carrinho', subtitle: 'Revise os produtos escolhidos antes do WhatsApp.' },
+          pedidos: { title: 'Pedidos', subtitle: 'Acompanhe cada pedido realizado.' },
+          'contas-a-receber': { title: 'Contas a receber', subtitle: 'Parcelas e valores ainda não recebidos.' },
+          'contas-pagas': { title: 'Contas pagas', subtitle: 'Pagamentos já finalizados e baixados.' },
+          estoque: { title: 'Relatório de estoque', subtitle: 'Acompanhe o estoque dos produtos da sua loja.' },
+          perfil: { title: 'Perfil', subtitle: 'Gerencie sua conta e sua presença como vendedor.' }
+        };
+        const meta = titles[page] || titles.home;
+        pageTitle.textContent = meta.title;
+        pageSubtitle.textContent = meta.subtitle;
+
+        if (page === 'pedidos') {
+          carregarPedidos();
+        } else if (page === 'contas-a-receber') {
+          carregarContasAReceber();
+        } else if (page === 'contas-pagas') {
+          carregarContasPagas();
+        } else if (page === 'estoque') {
+          carregarRelatorioEstoque();
+        }
+      }
+
+      window.showPage = showPage;
+      window.carregarVitrine = carregarVitrine;
+      window.carregarVitrinePadrao = carregarVitrinePadrao;
+
+      function render() {
+        const vendedorGroup = document.getElementById('vendedorGroup');
+
+        if (!state.usuario) {
+          sidebarName.textContent = 'Bem-vindo';
+          sidebarRole.textContent = 'Cliente';
+          sidebarClinic.textContent = state.supabase ? 'Faça login para entrar' : 'Supabase ainda não conectado';
+          if (vendedorGroup) vendedorGroup.hidden = true;
+          perfilArea.innerHTML = state.supabase
+            ? `
+              <div class="empty">
+                <form id="loginForm" onsubmit="event.preventDefault(); window.loginEmailSenha();">
+                  <div class="field">
+                    <label>Email</label>
+                    <input type="email" id="loginEmail" placeholder="seu@email.com" required />
+                  </div>
+                  <div class="field">
+                    <label>Senha</label>
+                    <input type="password" id="loginPassword" placeholder="Senha" required />
+                  </div>
+                  <div class="row" style="gap:8px; flex-wrap:wrap; margin-top:8px;">
+                    <button class="btn-primary" type="submit"><i class="fas fa-sign-in-alt"></i> Entrar com email</button>
+                    <button class="btn-secondary" type="button" onclick="window.signUpEmailSenha()"><i class="fas fa-user-plus"></i> Cadastrar</button>
+                    <button class="btn-secondary" type="button" onclick="window.loginGoogle()"><i class="fas fa-google"></i> Entrar com Google</button>
+                  </div>
+                </form>
+              </div>
+            `
+            : '<div class="empty">Configure o Supabase no arquivo .env para habilitar login e operações reais.</div>';
+          minhasLojasArea.innerHTML = '<div class="empty">Faça login para visualizar suas lojas.</div>';
+          carrinhoArea.innerHTML = '<div class="empty">Faça login para usar o carrinho.</div>';
+          pedidosArea.innerHTML = '<div class="empty">Faça login para ver seus pedidos.</div>';
+          return;
+        }
+
+        if (vendedorGroup) vendedorGroup.hidden = !(state.minhasLojas && state.minhasLojas.length > 0);
+        sidebarName.textContent = state.usuario.user_metadata?.full_name || state.usuario.email || 'Usuário';
+        sidebarRole.textContent = state.minhasLojas.length ? 'Vendedor' : 'Cliente';
+        sidebarClinic.textContent = state.minhasLojas.length ? 'Loja ativa' : 'Ainda sem loja';
+        perfilArea.innerHTML = `
+          <div class="store-card">
+            <h3>${state.usuario.user_metadata?.full_name || state.usuario.email}</h3>
+            <p class="muted">Você começa como cliente, podendo explorar lojas e vitrines. Quando quiser, pode transformar seu perfil em loja e abrir uma vitrine própria.</p>
+            <p class="muted"><strong>Email:</strong> ${state.usuario.email || 'Não cadastrado'}</p>
+            <div class="field" style="margin-top:12px;">
+              <label>Telefone</label>
+              <input type="text" id="perfilTelefone" placeholder="(99) 99999-9999" value="${state.perfil?.telefone || ''}" />
+            </div>
+            <div class="row">
+              <button class="btn-primary" onclick="window.atualizarPerfil()"><i class="fas fa-save"></i> Salvar telefone</button>
+              <button class="btn-secondary" onclick="window.editarPerfil()"><i class="fas fa-user-edit"></i> Atualizar nome</button>
+              <button class="btn-secondary" onclick="window.abrirUpgradeLoja()"><i class="fas fa-store"></i> Quero ter uma loja</button>
+              <button class="btn-secondary" onclick="window.logout()"><i class="fas fa-sign-out-alt"></i> Sair</button>
+            </div>
+          </div>
+        `;
+      }
+
+      // Único ponto que dispara o carregamento dos dados do usuário logado
+      // (lojas, carrinho, pedidos). Antes essas três chamadas também
+      // rodavam soltas dentro de render(), e render() é chamado tanto por
+      // carregarUsuario() quanto por onAuthStateChange - então às vezes
+      // duas cargas concorrentes da mesma loja disputavam a mesma área da
+      // tela ao mesmo tempo. Centralizar aqui remove essa corrida.
+      async function refreshUserData() {
+        await carregarPerfil();
+        await carregarMinhasLojas();
+        await carregarCarrinho();
+        await carregarPedidos();
+      }
+
+      window.showPage = showPage;
+      window.loginGoogle = loginGoogle;
+      window.loginEmailSenha = loginEmailSenha;
+      window.signUpEmailSenha = signUpEmailSenha;
+      window.atualizarPerfil = atualizarPerfil;
+      window.logout = logout;
+      window.editarProdutoPorId = (produtoId) => {
+        const produto = state.produtosGerenciados.find((p) => p.id === produtoId) || state.produtosVitrine.find((p) => p.id === produtoId);
+        if (produto) preencherFormularioProduto(produto);
+      };
+      window.excluirProduto = async (produtoId, lojaId) => {
+        if (!confirm('Deseja excluir este produto?')) return;
+        const response = await fetch(`/produtos/${produtoId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${state.token}` }
+        });
+        if (!response.ok) return alert('Não foi possível excluir o produto');
+        await carregarProdutosGerenciados(lojaId);
+        if (state.lojaSelecionada === lojaId) {
+          await carregarVitrine(lojaId);
+        }
+        alert('Produto excluído com sucesso');
+      };
+      window.compartilharVitrine = async (lojaId) => {
+        const loja = [...state.minhasLojas, ...state.lojasTodas, ...state.lojas].find((l) => l.id === lojaId);
+        const shareUrl = new URL(window.location.href);
+        shareUrl.searchParams.set('loja', lojaId);
+        shareUrl.searchParams.delete('produto');
+        await compartilharUrl(shareUrl.toString(), 'vitrine', loja?.nome);
+      };
+      window.compartilharProduto = async (produtoId, lojaId) => {
+        const produto = [...state.produtosVitrine, ...state.produtosGerenciados].find((p) => p.id === produtoId);
+        const shareUrl = new URL(window.location.href);
+        shareUrl.searchParams.set('loja', lojaId);
+        shareUrl.searchParams.set('produto', produtoId);
+        await compartilharUrl(shareUrl.toString(), 'produto', produto?.nome);
+      };
+      window.abrirUpgradeLoja = () => {
+        showPage('minhas-lojas');
+        document.getElementById('lojaNome').focus();
+      };
+      window.editarPerfil = atualizarNomePerfil;
+      window.selecionarLoja = async (lojaId) => {
+        state.lojaSelecionada = lojaId;
+        state.lojaSelecionadaManual = true;
+        showPage('vitrine');
+        await carregarVitrine(lojaId);
+        await carregarCarrinho();
+      };
+      window.editarLoja = async (lojaId) => {
+        const loja = state.minhasLojas.find((l) => l.id === lojaId);
+        if (!loja) return alert('Loja não encontrada.');
+
+        document.getElementById('lojaId').value = loja.id;
+        document.getElementById('lojaNome').value = loja.nome || '';
+        document.getElementById('lojaDescricao').value = loja.descricao || '';
+        document.getElementById('lojaWhatsapp').value = loja.whatsapp || '';
+        document.getElementById('lojaTipoDocumento').value = loja.tipo_documento || 'cpf';
+        document.getElementById('lojaDocumento').value = loja.documento || '';
+        document.getElementById('lojaCep').value = loja.cep ? loja.cep.replace(/(\d{5})(\d{3})/, '$1-$2') : '';
+        document.getElementById('lojaNumero').value = loja.numero || '';
+        lojaLogoUrlInput.value = loja.logo_url || '';
+        lojaCoverUrlInput.value = loja.cover_url || '';
+        lojaPrimaryColorInput.value = loja.primary_color || '#2563eb';
+        lojaSecondaryColorInput.value = loja.secondary_color || '#0f766e';
+        lojaAccentColorInput.value = loja.accent_color || '#f59e0b';
+        lojaHeroTitleInput.value = loja.hero_title || 'Nossa vitrine especial';
+        lojaHeroSubtitleInput.value = loja.hero_subtitle || 'Promoções, novidades e atendimento rápido';
+        document.querySelector('#page-minhas-lojas button[type="submit"]').innerHTML = '<i class="fas fa-save"></i> Salvar loja';
+        syncStorePreview();
+        showPage('minhas-lojas');
+      };
+
+      window.adicionarCarrinho = async (produtoId, lojaId, preco) => {
+        if (!state.usuario || !state.token) return alert('Faça login para adicionar produtos ao carrinho.');
+        const produto = state.produtosVitrine.find((p) => p.id === produtoId);
+        const disponivel = produtoEstaDisponivel(produto);
+        if (!produto || !disponivel) {
+          return alert('Este produto não está disponível para compra no momento.');
+        }
+
+        const qtyInput = document.getElementById(`qty-${produtoId}`);
+        const quantidade = Math.max(1, parseInt(qtyInput?.value, 10) || 1);
+        const precoUnitario = Number(preco) || Number(produto.preco) || 0;
+        if (!precoUnitario) {
+          return alert('Preço inválido do produto. Atualize a página e tente novamente.');
+        }
+
+        try {
+          const carrinhoResp = await fetch(`/carrinho/loja/${lojaId}`, { headers: { Authorization: `Bearer ${state.token}` } });
+          const carrinho = await carrinhoResp.json();
+          if (!carrinhoResp.ok) {
+            return alert(carrinho.erro || 'Não foi possível abrir o carrinho.');
+          }
+          if (!carrinho?.id) {
+            return alert('Não foi possível criar o carrinho. Tente novamente.');
+          }
+
+          state.lojaSelecionada = lojaId;
+          state.carrinhoId = carrinho.id;
+
+          const response = await fetch(`/carrinho/${carrinho.id}/itens`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
+            body: JSON.stringify({ produto_id: produtoId, quantidade, preco_unitario: precoUnitario })
+          });
+
+          const result = await response.json();
+          if (!response.ok) {
+            return alert(result.erro || 'Não foi possível adicionar o produto ao carrinho.');
+          }
+
+          showPage('carrinho');
+          await carregarCarrinho();
+        } catch (error) {
+          console.error('Erro ao adicionar produto ao carrinho', error);
+          alert('Erro de conexão. Tente novamente em alguns instantes.');
+        }
+      };
+      window.finalizarPedido = async () => {
+        if (!state.usuario || !state.token || !state.carrinhoId) return alert('Você precisa adicionar produtos ao carrinho primeiro.');
+        if (!state.usuario.email) {
+          window.location.hash = 'perfil';
+          return alert('Seu email precisa estar presente no perfil para finalizar o pedido.');
+        }
+        if (!state.perfil?.telefone) {
+          window.location.hash = 'perfil';
+          return alert('Seu telefone precisa estar presente no perfil para finalizar o pedido.');
+        }
+        const response = await fetch('/pedidos/finalizar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
+          body: JSON.stringify({ carrinho_id: state.carrinhoId, forma_pagamento: 'WhatsApp', parcelas: 1 })
+        });
+        const result = await response.json();
+        if (!response.ok) return alert(result.erro || 'Não foi possível finalizar o pedido');
+
+        if (result.itensInsuficientes?.length) {
+          const linhas = result.itensInsuficientes
+            .map((item) => `• ${item.nome_produto}: pedido ${item.quantidade_pedida}, disponível ${item.quantidade_disponivel}`)
+            .join('\n');
+          alert(`Seu pedido foi enviado, mas alguns itens excedem o estoque atual da loja:\n\n${linhas}\n\nConfirme a disponibilidade desses itens direto com o dono da loja pelo WhatsApp.`);
+        }
+
+        if (result.linkWhatsapp) window.open(result.linkWhatsapp, '_blank');
+        else alert('Pedido enviado');
+
+        await carregarCarrinho();
+      };
+
+      syncStorePreview();
+
+      state.supabase?.auth.onAuthStateChange((_event, session) => {
+        state.usuario = session?.user || null;
+        state.token = session?.access_token || null;
+        render();
+        if (state.usuario) refreshUserData();
+      });
+
+      document.getElementById('produtoLojaId').addEventListener('change', async (event) => {
+        const lojaId = event.target.value;
+        if (lojaId) {
+          await carregarProdutosGerenciados(lojaId);
+        }
+      });
+
+      init();
+    </script>
+  </body>
+</html>
