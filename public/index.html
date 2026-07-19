@@ -325,6 +325,7 @@
           <div class="sb-group-list">
             <a class="nav-item" href="#minhas-lojas" data-page="minhas-lojas"><i class="fas fa-shop"></i><span>Minhas lojas</span></a>
             <a class="nav-item" href="#cadastrar-produto" data-page="cadastrar-produto"><i class="fas fa-box-open"></i><span>Cadastrar produto</span></a>
+            <a class="nav-item" href="#pedidos" data-page="pedidos"><i class="fas fa-receipt"></i><span>Pedidos da loja</span></a>
             <a class="nav-item" href="#contas-a-receber" data-page="contas-a-receber"><i class="fas fa-hand-holding-dollar"></i><span>Contas a receber</span></a>
             <a class="nav-item" href="#contas-pagas" data-page="contas-pagas"><i class="fas fa-money-check-dollar"></i><span>Contas pagas</span></a>
             <a class="nav-item" href="#estoque" data-page="estoque"><i class="fas fa-boxes-stacked"></i><span>Estoque</span></a>
@@ -335,7 +336,7 @@
           <button class="sb-group-btn" type="button"><span>Compras</span><span class="caret">▶</span></button>
           <div class="sb-group-list">
             <a class="nav-item" href="#carrinho" data-page="carrinho"><i class="fas fa-shopping-cart"></i><span>Carrinho</span></a>
-            <a class="nav-item" href="#pedidos" data-page="pedidos"><i class="fas fa-receipt"></i><span>Pedidos</span></a>
+            <a class="nav-item" href="#minhas-compras" data-page="minhas-compras"><i class="fas fa-bag-shopping"></i><span>Minhas compras</span></a>
           </div>
         </div>
 
@@ -628,8 +629,8 @@
         <div class="card">
           <div class="row" style="justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
             <div>
-              <h2><i class="fas fa-receipt"></i> Pedidos</h2>
-              <p class="muted" style="margin-top:8px;">Veja o histórico de pedidos, o cliente que comprou e a forma de pagamento escolhida.</p>
+              <h2><i class="fas fa-receipt"></i> Pedidos da loja</h2>
+              <p class="muted" style="margin-top:8px;">Todos os pedidos que sua loja recebeu de clientes, com o cliente que comprou e a forma de pagamento.</p>
             </div>
             <div class="row" style="gap:8px; flex-wrap:wrap;">
               <button class="btn-secondary" id="btnContasReceber" type="button"><i class="fas fa-hand-holding-dollar"></i> Contas a receber</button>
@@ -637,7 +638,15 @@
               <button class="btn-secondary" id="btnRelatorioEstoque" type="button"><i class="fas fa-chart-line"></i> Relatório de estoque</button>
             </div>
           </div>
-          <div id="pedidosArea" class="empty" style="margin-top:16px;">Nenhum pedido ainda.</div>
+          <div id="pedidosArea" class="empty" style="margin-top:16px;">Nenhum pedido recebido ainda.</div>
+        </div>
+      </section>
+
+      <section class="page-section" id="page-minhas-compras">
+        <div class="card">
+          <h2><i class="fas fa-bag-shopping"></i> Minhas compras</h2>
+          <p class="muted" style="margin-top:8px;">O histórico de pedidos que você mesmo fez em qualquer loja.</p>
+          <div id="minhasComprasArea" class="empty" style="margin-top:16px;">Você ainda não fez nenhum pedido.</div>
         </div>
       </section>
 
@@ -694,7 +703,7 @@
         <a class="nav-item active" href="#home" data-page="home"><i class="fas fa-home"></i><span>Início</span></a>
         <a class="nav-item" href="#lojas" data-page="lojas"><i class="fas fa-map-marked-alt"></i><span>Lojas</span></a>
         <a class="nav-item" href="#vitrine" data-page="vitrine"><i class="fas fa-store"></i><span>Vitrine</span></a>
-        <a class="nav-item" href="#pedidos" data-page="pedidos"><i class="fas fa-receipt"></i><span>Pedidos</span></a>
+        <a class="nav-item" href="#minhas-compras" data-page="minhas-compras"><i class="fas fa-bag-shopping"></i><span>Compras</span></a>
         <a class="nav-item" href="#carrinho" data-page="carrinho"><i class="fas fa-shopping-cart"></i><span>Carrinho</span></a>
         <a class="nav-item" href="#perfil" data-page="perfil"><i class="fas fa-user-circle"></i><span>Perfil</span></a>
         <button class="nav-item" type="button" id="bnMaisBtn"><i class="fas fa-bars"></i><span>Mais</span></button>
@@ -743,6 +752,7 @@
       const carrinhoArea = document.getElementById('carrinhoArea');
       const minhasLojasArea = document.getElementById('minhasLojasArea');
       const pedidosArea = document.getElementById('pedidosArea');
+      const minhasComprasArea = document.getElementById('minhasComprasArea');
       const contasReceberArea = document.getElementById('contasReceberArea');
       const contasPagasArea = document.getElementById('contasPagasArea');
       const estoqueArea = document.getElementById('estoqueArea');
@@ -1895,30 +1905,29 @@
       // state.pedidos (minhas compras) e state.pedidosRecebidos (pedidos
       // que minha loja recebeu de outros clientes) - ver
       // carregarPedidosRecebidos() logo abaixo.
-      async function carregarPedidos() {
+      // "Minhas compras" (menu Compras) é a tela do CLIENTE: minhas
+      // próprias compras, sempre - mesmo que eu também seja vendedor em
+      // outra loja. Não tem nenhum controle de pagamento aqui: quem
+      // confirma o recebimento é o vendedor, em "Pedidos da loja".
+      async function carregarMinhasCompras() {
         if (!state.usuario || !state.token) {
-          pedidosArea.innerHTML = '<div class="empty">Faça login para ver pedidos.</div>';
+          minhasComprasArea.innerHTML = '<div class="empty">Faça login para ver suas compras.</div>';
           return;
         }
         const response = await fetch('/pedidos', { headers: { Authorization: `Bearer ${state.token}` } });
         const pedidos = await response.json();
         if (!response.ok) {
           state.pedidos = [];
-          pedidosArea.innerHTML = `<div class="empty">${pedidos.erro || 'Não foi possível carregar os pedidos.'}</div>`;
-          await carregarDashboard();
+          minhasComprasArea.innerHTML = `<div class="empty">${pedidos.erro || 'Não foi possível carregar suas compras.'}</div>`;
           return;
         }
         if (!Array.isArray(pedidos) || !pedidos.length) {
           state.pedidos = [];
-          const dicaVendedor = state.minhasLojas?.length
-            ? ' Se você é vendedor e quer ver os pedidos que a SUA loja recebeu de clientes, vá em "Contas a receber" ou "Contas pagas" — esta tela aqui é só das suas próprias compras.'
-            : '';
-          pedidosArea.innerHTML = `<div class="empty">Você ainda não fez nenhum pedido.${dicaVendedor}</div>`;
-          await carregarDashboard();
+          minhasComprasArea.innerHTML = '<div class="empty">Você ainda não fez nenhum pedido.</div>';
           return;
         }
         state.pedidos = pedidos;
-        pedidosArea.innerHTML = pedidos.map((pedido) => `
+        minhasComprasArea.innerHTML = pedidos.map((pedido) => `
           <div class="store-card" style="margin-bottom:12px;">
             <h3>Pedido #${String(pedido.id).slice(0, 8)}</h3>
             <p class="muted">Loja: ${pedido.lojas?.nome || 'Não disponível'}</p>
@@ -1936,7 +1945,6 @@
             ` : ''}
           </div>
         `).join('');
-        await carregarDashboard();
       }
 
       // Pedidos RECEBIDOS pela(s) loja(s) do usuário (visão vendedor).
@@ -1952,6 +1960,55 @@
         const pedidos = await response.json();
         state.pedidosRecebidos = response.ok && Array.isArray(pedidos) ? pedidos : [];
         return state.pedidosRecebidos;
+      }
+
+      // "Pedidos da loja" (menu Vendedor) - TODOS os pedidos que a(s)
+      // loja(s) do usuário receberam de clientes, independente do status
+      // de pagamento. É aqui que o vendedor escolhe a forma de pagamento e
+      // dá baixa (veja renderBaixaPedido/renderParcelasPedido). "Contas a
+      // receber"/"Contas pagas" são só recortes filtrados desse mesmo
+      // conjunto, para quem quer ver só o que falta ou só o que já entrou.
+      async function carregarPedidos() {
+        if (!state.usuario || !state.token) {
+          pedidosArea.innerHTML = '<div class="empty">Faça login para ver os pedidos da sua loja.</div>';
+          return;
+        }
+        if (!state.minhasLojas?.length) {
+          pedidosArea.innerHTML = '<div class="empty">Esta tela é para vendedores. Crie sua loja em "Minhas lojas" para começar a receber pedidos.</div>';
+          return;
+        }
+
+        await carregarPedidosRecebidos();
+        const pedidos = state.pedidosRecebidos || [];
+
+        if (!pedidos.length) {
+          pedidosArea.innerHTML = '<div class="empty">Nenhum pedido recebido ainda.</div>';
+          await carregarDashboard();
+          return;
+        }
+
+        pedidosArea.innerHTML = pedidos.map((pedido) => `
+          <div class="store-card" style="margin-bottom:12px;">
+            <h3>Pedido #${String(pedido.id).slice(0, 8)}</h3>
+            <p class="muted">Status: ${pedido.status}</p>
+            <p class="muted">Cliente: ${pedido.cliente_nome || 'Não informado'}</p>
+            <p class="muted">Telefone: ${pedido.cliente_telefone || 'Não disponível'}</p>
+            <p class="muted">Email: ${pedido.cliente_email || 'Não disponível'}</p>
+            <p class="muted">Pagamento: ${pedido.forma_pagamento || 'WhatsApp'} • ${pedido.parcelas || 1} parcela(s)</p>
+            <p class="muted">Pedido criado em: ${formatarData(pedido.created_at)}</p>
+            <p class="muted">Total: R$ ${Number(pedido.total).toFixed(2)}</p>
+            ${pedido.pedido_itens?.length ? `<ul style="margin-top:8px;">${pedido.pedido_itens.map((item) => `<li>${item.quantidade}x ${item.nome_produto} — R$ ${Number(item.preco_unitario).toFixed(2)}</li>`).join('')}</ul>` : ''}
+            ${renderBaixaPedido(pedido)}
+            ${renderParcelasPedido(pedido)}
+            ${pedido.status === 'concluido' ? `
+              <div class="row" style="margin-top:8px; justify-content:flex-end; gap:8px; flex-wrap:wrap;">
+                <button class="btn-secondary" type="button" onclick="window.downloadPdf('${pedido.id}', 'pagamento')">Baixar comprovante em PDF</button>
+                ${pedido.forma_pagamento === 'A prazo' ? `<button class="btn-secondary" type="button" onclick="window.downloadPdf('${pedido.id}', 'parcelas')">Baixar boletos</button>` : ''}
+              </div>
+            ` : ''}
+          </div>
+        `).join('');
+        await carregarDashboard();
       }
 
       window.atualizarStatusPedido = async (pedidoId, status) => {
@@ -1987,12 +2044,14 @@
         const result = await response.json();
         if (!response.ok) return alert(result.erro || 'Não foi possível atualizar o pedido.');
         // Estas ações (marcar pedido/parcela como pago) só ficam visíveis em
-        // telas de vendedor (Contas a receber/pagas), então atualizamos o
-        // cache de pedidos RECEBIDOS pela loja - nunca o cache de compras
-        // do próprio cliente.
+        // telas de vendedor (Pedidos da loja / Contas a receber/pagas),
+        // então atualizamos o cache de pedidos RECEBIDOS pela loja - nunca
+        // o cache de compras do próprio cliente.
         await carregarPedidosRecebidos();
-        if (window.location.hash.replace('#', '') === 'contas-a-receber') await carregarContasAReceber();
-        if (window.location.hash.replace('#', '') === 'contas-pagas') await carregarContasPagas();
+        const paginaAtual = window.location.hash.replace('#', '');
+        if (paginaAtual === 'pedidos') await carregarPedidos();
+        if (paginaAtual === 'contas-a-receber') await carregarContasAReceber();
+        if (paginaAtual === 'contas-pagas') await carregarContasPagas();
         alert('Pedido atualizado com sucesso.');
       }
 
@@ -2020,8 +2079,10 @@
         if (!response.ok) return alert(result.erro || 'Não foi possível registrar a baixa da parcela.');
 
         await carregarPedidosRecebidos();
-        if (window.location.hash.replace('#', '') === 'contas-a-receber') await carregarContasAReceber();
-        if (window.location.hash.replace('#', '') === 'contas-pagas') await carregarContasPagas();
+        const paginaAtualParcela = window.location.hash.replace('#', '');
+        if (paginaAtualParcela === 'pedidos') await carregarPedidos();
+        if (paginaAtualParcela === 'contas-a-receber') await carregarContasAReceber();
+        if (paginaAtualParcela === 'contas-pagas') await carregarContasPagas();
         alert('Parcela marcada como paga.');
       };
 
@@ -2242,7 +2303,8 @@
           'minhas-lojas': { title: 'Minhas lojas', subtitle: 'Crie sua loja e organize seus produtos.' },
           'cadastrar-produto': { title: 'Cadastrar produto', subtitle: 'Publique itens com foto, preço e estoque.' },
           carrinho: { title: 'Carrinho', subtitle: 'Revise os produtos escolhidos antes do WhatsApp.' },
-          pedidos: { title: 'Pedidos', subtitle: 'Acompanhe cada pedido realizado.' },
+          pedidos: { title: 'Pedidos da loja', subtitle: 'Pedidos recebidos de clientes, com forma de pagamento e baixa.' },
+          'minhas-compras': { title: 'Minhas compras', subtitle: 'O histórico de pedidos que você mesmo fez.' },
           'contas-a-receber': { title: 'Contas a receber', subtitle: 'Parcelas e valores ainda não recebidos.' },
           'contas-pagas': { title: 'Contas pagas', subtitle: 'Pagamentos já finalizados e baixados.' },
           estoque: { title: 'Relatório de estoque', subtitle: 'Acompanhe o estoque dos produtos da sua loja.' },
@@ -2254,6 +2316,8 @@
 
         if (page === 'pedidos') {
           carregarPedidos();
+        } else if (page === 'minhas-compras') {
+          carregarMinhasCompras();
         } else if (page === 'contas-a-receber') {
           carregarContasAReceber();
         } else if (page === 'contas-pagas') {
@@ -2298,7 +2362,8 @@
             : '<div class="empty">Configure o Supabase no arquivo .env para habilitar login e operações reais.</div>';
           minhasLojasArea.innerHTML = '<div class="empty">Faça login para visualizar suas lojas.</div>';
           carrinhoArea.innerHTML = '<div class="empty">Faça login para usar o carrinho.</div>';
-          pedidosArea.innerHTML = '<div class="empty">Faça login para ver seus pedidos.</div>';
+          pedidosArea.innerHTML = '<div class="empty">Faça login para ver os pedidos da sua loja.</div>';
+          minhasComprasArea.innerHTML = '<div class="empty">Faça login para ver suas compras.</div>';
           return;
         }
 
@@ -2335,7 +2400,6 @@
         await carregarPerfil();
         await carregarMinhasLojas();
         await carregarCarrinho();
-        await carregarPedidos();
       }
 
       window.showPage = showPage;
