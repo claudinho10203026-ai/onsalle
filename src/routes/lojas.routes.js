@@ -51,32 +51,62 @@ async function resolverEnderecoPorCep(cepBruto) {
   };
 }
 
+// BUG ENCONTRADO: a geocodificação tentava só UMA query (endereço
+// completo com número da casa). O Nominatim/OpenStreetMap não tem
+// cobertura completa de numeração de rua no Brasil - pra muitos
+// endereços reais, essa busca específica não acha nada e devolve uma
+// lista vazia. Quando isso acontece, latitude/longitude ficam NULL, a
+// loja é criada mesmo assim, e como "buscar_lojas_proximas" exige
+// "localizacao is not null", ela nunca aparece na busca, nem para quem
+// está a 10 metros dela.
+//
+// Agora, se a busca mais específica não achar nada, tentamos de novo com
+// endereços progressivamente mais genéricos (sem o número, só bairro,
+// só cidade) até achar alguma coordenada - uma coordenada aproximada
+// (nível de bairro/cidade) é MUITO melhor que nenhuma para "lojas
+// próximas". Também respeitamos o limite de 1 requisição por segundo
+// exigido pela política de uso do Nominatim.
 async function geocodificarEndereco({ logradouro, numero, bairro, cidade, estado, cep }) {
-  const partes = [
-    [logradouro, numero].filter(Boolean).join(', '),
-    bairro,
-    cidade && estado ? `${cidade} - ${estado}` : cidade || estado,
-    cep,
-    'Brasil'
-  ].filter(Boolean);
-  const query = partes.join(', ');
+  const enderecoComNumero = [logradouro, numero].filter(Boolean).join(', ');
 
-  try {
-    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(query)}`;
-    const resposta = await fetch(url, { headers: { 'User-Agent': GEOCODER_USER_AGENT } });
-    if (!resposta.ok) return { latitude: null, longitude: null };
-    const resultados = await resposta.json();
-    if (!Array.isArray(resultados) || !resultados.length) return { latitude: null, longitude: null };
-    return {
-      latitude: Number(resultados[0].lat),
-      longitude: Number(resultados[0].lon)
-    };
-  } catch (error) {
-    // Geocodificação é best-effort: se falhar, a loja ainda é criada,
-    // só não aparece em "lojas próximas" até uma edição corrigir isso.
-    console.warn('Falha ao geocodificar endereço da loja:', error.message);
-    return { latitude: null, longitude: null };
+  const tentativas = [
+    { partes: [enderecoComNumero, bairro, cidade, estado, cep, 'Brasil'], precisao: 'endereco' },
+    { partes: [enderecoComNumero, cidade, estado, 'Brasil'], precisao: 'endereco' },
+    { partes: [bairro, cidade, estado, 'Brasil'], precisao: 'bairro' },
+    { partes: [cidade, estado, 'Brasil'], precisao: 'cidade' }
+  ];
+
+  for (let i = 0; i < tentativas.length; i++) {
+    const query = tentativas[i].partes.filter(Boolean).join(', ');
+    if (!query) continue;
+
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(query)}`;
+      const resposta = await fetch(url, { headers: { 'User-Agent': GEOCODER_USER_AGENT } });
+      if (resposta.ok) {
+        const resultados = await resposta.json();
+        if (Array.isArray(resultados) && resultados.length) {
+          return {
+            latitude: Number(resultados[0].lat),
+            longitude: Number(resultados[0].lon),
+            precisao: tentativas[i].precisao
+          };
+        }
+      }
+    } catch (error) {
+      console.warn('Falha ao geocodificar (tentativa "%s"):', query, error.message);
+    }
+
+    // Nominatim exige no máximo 1 requisição por segundo por IP.
+    if (i < tentativas.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+    }
   }
+
+  // Nenhuma tentativa encontrou nada. A loja ainda é criada, mas sem
+  // coordenadas - o front-end avisa o dono e oferece capturar a
+  // localização pelo GPS do celular como alternativa.
+  return { latitude: null, longitude: null, precisao: null };
 }
 
 // Criar loja (é assim que um cliente "vira vendedor")
@@ -95,7 +125,12 @@ router.post('/', autenticar, async (req, res) => {
     secondary_color,
     accent_color,
     hero_title,
-    hero_subtitle
+    hero_subtitle,
+    // Coordenadas capturadas direto do GPS do navegador (botão "Usar
+    // minha localização atual" no formulário). Quando enviadas, são MUITO
+    // mais confiáveis que a geocodificação por CEP, então têm prioridade.
+    latitude: latitudeGps,
+    longitude: longitudeGps
   } = req.body;
 
   if (!nome || !whatsapp) {
@@ -113,14 +148,27 @@ router.post('/', autenticar, async (req, res) => {
     return res.status(400).json({ erro: error.message });
   }
 
-  const { latitude, longitude } = await geocodificarEndereco({
-    logradouro: enderecoResolvido.logradouro,
-    numero,
-    bairro: enderecoResolvido.bairro,
-    cidade: enderecoResolvido.cidade,
-    estado: enderecoResolvido.estado,
-    cep: enderecoResolvido.cep
-  });
+  let latitude = null;
+  let longitude = null;
+  let precisaoLocalizacao = null;
+
+  if (latitudeGps != null && longitudeGps != null && !Number.isNaN(Number(latitudeGps)) && !Number.isNaN(Number(longitudeGps))) {
+    latitude = Number(latitudeGps);
+    longitude = Number(longitudeGps);
+    precisaoLocalizacao = 'gps';
+  } else {
+    const resultado = await geocodificarEndereco({
+      logradouro: enderecoResolvido.logradouro,
+      numero,
+      bairro: enderecoResolvido.bairro,
+      cidade: enderecoResolvido.cidade,
+      estado: enderecoResolvido.estado,
+      cep: enderecoResolvido.cep
+    });
+    latitude = resultado.latitude;
+    longitude = resultado.longitude;
+    precisaoLocalizacao = resultado.precisao;
+  }
 
   const enderecoCompleto = [enderecoResolvido.logradouro, numero].filter(Boolean).join(', ');
 
@@ -153,7 +201,15 @@ router.post('/', autenticar, async (req, res) => {
     .single();
 
   if (error) return res.status(400).json({ erro: error.message });
-  res.status(201).json(data);
+
+  res.status(201).json({
+    ...data,
+    // O front-end usa isso pra avisar o dono quando a loja foi criada
+    // mas não conseguiu ser localizada no mapa (não vai aparecer em
+    // "lojas próximas" até isso ser corrigido).
+    localizacao_definida: latitude != null && longitude != null,
+    precisao_localizacao: precisaoLocalizacao
+  });
 });
 
 // Listar todas as lojas ativas (público) - é a listagem padrão da tela
@@ -261,11 +317,20 @@ router.get('/:id', async (req, res) => {
 // Editar loja (só o dono - garantido pelo RLS)
 router.put('/:id', autenticar, async (req, res) => {
   const payload = { ...req.body };
+  let localizacaoDefinida;
+  let precisaoLocalizacao;
 
-  // Se o dono está alterando o CEP, revalida e regeocodifica do mesmo jeito
-  // que no cadastro, para manter latitude/longitude corretos na busca por
-  // proximidade.
-  if (payload.cep) {
+  // Coordenadas de GPS enviadas direto do navegador têm prioridade sobre
+  // a geocodificação por CEP (ver POST / acima para o motivo).
+  const temGpsValido = payload.latitude != null && payload.longitude != null
+    && !Number.isNaN(Number(payload.latitude)) && !Number.isNaN(Number(payload.longitude));
+
+  if (temGpsValido) {
+    payload.latitude = Number(payload.latitude);
+    payload.longitude = Number(payload.longitude);
+    localizacaoDefinida = true;
+    precisaoLocalizacao = 'gps';
+  } else if (payload.cep) {
     let enderecoResolvido;
     try {
       enderecoResolvido = await resolverEnderecoPorCep(payload.cep);
@@ -273,7 +338,7 @@ router.put('/:id', autenticar, async (req, res) => {
       return res.status(400).json({ erro: error.message });
     }
 
-    const { latitude, longitude } = await geocodificarEndereco({
+    const resultado = await geocodificarEndereco({
       logradouro: enderecoResolvido.logradouro,
       numero: payload.numero,
       bairro: enderecoResolvido.bairro,
@@ -287,8 +352,10 @@ router.put('/:id', autenticar, async (req, res) => {
     payload.cidade = enderecoResolvido.cidade || null;
     payload.estado = enderecoResolvido.estado || null;
     payload.endereco = [enderecoResolvido.logradouro, payload.numero].filter(Boolean).join(', ') || null;
-    payload.latitude = latitude;
-    payload.longitude = longitude;
+    payload.latitude = resultado.latitude;
+    payload.longitude = resultado.longitude;
+    localizacaoDefinida = resultado.latitude != null && resultado.longitude != null;
+    precisaoLocalizacao = resultado.precisao;
   }
 
   const { data, error } = await req.supabase
@@ -299,7 +366,13 @@ router.put('/:id', autenticar, async (req, res) => {
     .single();
 
   if (error) return res.status(400).json({ erro: error.message });
-  res.json(data);
+  res.json({
+    ...data,
+    localizacao_definida: localizacaoDefinida !== undefined ? localizacaoDefinida : data.latitude != null && data.longitude != null,
+    precisao_localizacao: precisaoLocalizacao
+  });
 });
 
 module.exports = router;
+
+
