@@ -470,6 +470,12 @@
                   <input type="text" id="lojaNumero" placeholder="123" />
                 </div>
               </div>
+              <div class="field">
+                <button type="button" class="btn-secondary" id="lojaUsarGpsBtn"><i class="fas fa-location-crosshairs"></i> Usar minha localização atual</button>
+                <small class="muted" id="lojaGpsStatus" style="display:block; margin-top:6px;">
+                  Recomendado: a localização por CEP às vezes não encontra o endereço exato. Se você estiver na loja agora, use este botão para marcar a posição certa no mapa.
+                </small>
+              </div>
               <input type="hidden" id="lojaId" />
               <div class="field">
                 <label>Logo da vitrine</label>
@@ -746,6 +752,9 @@
       const produtoForm = document.getElementById('produtoForm');
       const lojaCepInput = document.getElementById('lojaCep');
       const lojaCepStatus = document.getElementById('lojaCepStatus');
+      const lojaUsarGpsBtn = document.getElementById('lojaUsarGpsBtn');
+      const lojaGpsStatus = document.getElementById('lojaGpsStatus');
+      let lojaGpsCapturado = null;
       const lojaNumeroInput = document.getElementById('lojaNumero');
       const lojaLogoUrlInput = document.getElementById('lojaLogoUrl');
       const lojaCoverUrlInput = document.getElementById('lojaCoverUrl');
@@ -929,6 +938,29 @@
         });
         lojaCepInput.addEventListener('blur', () => consultarCep(lojaCepInput.value));
 
+        lojaUsarGpsBtn.addEventListener('click', () => {
+          if (!navigator.geolocation) {
+            lojaGpsStatus.textContent = 'Seu navegador não tem suporte a geolocalização.';
+            lojaGpsStatus.style.color = 'var(--sb-text-muted)';
+            return;
+          }
+          lojaGpsStatus.textContent = 'Buscando sua localização...';
+          lojaGpsStatus.style.color = '';
+          navigator.geolocation.getCurrentPosition(
+            (posicao) => {
+              lojaGpsCapturado = { latitude: posicao.coords.latitude, longitude: posicao.coords.longitude };
+              lojaGpsStatus.textContent = 'Localização capturada ✓ — sua loja vai usar esta posição no mapa, mais precisa que o CEP.';
+              lojaGpsStatus.style.color = 'var(--sb-accent)';
+            },
+            () => {
+              lojaGpsCapturado = null;
+              lojaGpsStatus.textContent = 'Não conseguimos acessar sua localização. Verifique a permissão do navegador/celular e tente de novo.';
+              lojaGpsStatus.style.color = '#ef4444';
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+          );
+        });
+
         document.getElementById('lojaLogoCameraInput').addEventListener('change', (e) => handleStoreImageSelection(e.target, lojaLogoUrlInput));
         document.getElementById('lojaLogoGalleryInput').addEventListener('change', (e) => handleStoreImageSelection(e.target, lojaLogoUrlInput));
         document.getElementById('lojaCoverCameraInput').addEventListener('change', (e) => handleStoreImageSelection(e.target, lojaCoverUrlInput));
@@ -1043,6 +1075,10 @@
             hero_title: lojaHeroTitleInput.value,
             hero_subtitle: lojaHeroSubtitleInput.value
           };
+          if (lojaGpsCapturado) {
+            payload.latitude = lojaGpsCapturado.latitude;
+            payload.longitude = lojaGpsCapturado.longitude;
+          }
 
           const url = lojaId ? `/lojas/${lojaId}` : '/lojas';
           const method = lojaId ? 'PUT' : 'POST';
@@ -1056,6 +1092,8 @@
 
           lojaForm.reset();
           document.getElementById('lojaId').value = '';
+          lojaGpsCapturado = null;
+          lojaGpsStatus.textContent = '';
           document.querySelector('#page-minhas-lojas button[type="submit"]').innerHTML = '<i class="fas fa-plus"></i> Criar loja';
           syncStorePreview();
           lojaCepStatus.textContent = '';
@@ -1063,6 +1101,14 @@
           state.lojaSelecionadaManual = false;
           await carregarMinhasLojas();
           showPage('minhas-lojas');
+
+          if (result.localizacao_definida === false) {
+            alert(
+              'A loja foi salva, mas não conseguimos localizá-la no mapa automaticamente pelo CEP. ' +
+              'Ela NÃO vai aparecer na busca "lojas próximas" até isso ser corrigido. ' +
+              'Edite a loja e use o botão "Usar minha localização atual" estando no endereço da loja.'
+            );
+          }
           alert(lojaId ? 'Loja atualizada com sucesso' : 'Loja criada com sucesso');
         });
 
@@ -2353,6 +2399,11 @@
         document.getElementById('lojaDocumento').value = loja.documento || '';
         document.getElementById('lojaCep').value = loja.cep ? loja.cep.replace(/(\d{5})(\d{3})/, '$1-$2') : '';
         document.getElementById('lojaNumero').value = loja.numero || '';
+        lojaGpsCapturado = null;
+        lojaGpsStatus.style.color = loja.latitude != null && loja.longitude != null ? 'var(--sb-accent)' : '#ef4444';
+        lojaGpsStatus.textContent = loja.latitude != null && loja.longitude != null
+          ? 'Esta loja já tem uma localização salva. Só use o botão acima se quiser corrigi-la.'
+          : 'Esta loja ainda NÃO tem localização no mapa e não aparece em "lojas próximas". Use o botão acima estando no endereço da loja para corrigir.';
         lojaLogoUrlInput.value = loja.logo_url || '';
         lojaCoverUrlInput.value = loja.cover_url || '';
         lojaPrimaryColorInput.value = loja.primary_color || '#2563eb';
