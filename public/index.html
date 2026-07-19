@@ -1844,19 +1844,25 @@
 
       function renderParcelasPedido(pedido, somenteLeitura = false) {
         const parcelas = Array.isArray(pedido.pedido_parcelas) ? pedido.pedido_parcelas : [];
+        // BUG CORRIGIDO: antes, esse painel só aparecia se o pedido fosse
+        // "A prazo" com 2+ parcelas. Mas todo pedido - inclusive um
+        // pagamento simples, à vista - já tem 1 parcela criada desde o
+        // checkout (finalizar_pedido), e o painel de baixa em bloco
+        // (renderBaixaPedido) também some sempre que já existem parcelas.
+        // Juntando os dois, um pedido simples ficava sem NENHUM jeito de
+        // escolher a forma de pagamento ou dar baixa. Agora este painel
+        // aparece sempre que existe pelo menos 1 parcela - com 1 ou com 10,
+        // é sempre aqui que a baixa é feita.
         if (!parcelas.length) return '';
-
-        const mostrarParcelas = pedido.forma_pagamento === 'A prazo' || Number(pedido.parcelas || 1) > 1;
-        if (!mostrarParcelas) return '';
 
         const hoje = new Date().toISOString().split('T')[0];
 
         return `
           <div style="margin-top:10px; padding-top:10px; border-top: 1px solid var(--sb-border);">
-            <p class="muted"><strong>Parcelas</strong></p>
+            <p class="muted"><strong>${parcelas.length > 1 ? 'Parcelas' : 'Pagamento'}</strong></p>
             ${parcelas.map((parcela) => `
               <div style="margin-top:8px; padding:10px; border:1px solid var(--sb-border); border-radius:10px; background:var(--sb-elevated);">
-                <p class="muted"><strong>Parcela ${parcela.numero || 1}</strong> • R$ ${Number(parcela.valor || 0).toFixed(2)}</p>
+                <p class="muted">${parcelas.length > 1 ? `<strong>Parcela ${parcela.numero || 1}</strong> • ` : ''}R$ ${Number(parcela.valor || 0).toFixed(2)}</p>
                 <p class="muted">Vencimento: ${parcela.boleto_vencimento ? new Date(parcela.boleto_vencimento).toLocaleDateString('pt-BR') : '—'}</p>
                 <p class="muted">Status: ${parcela.status === 'pago' ? 'Paga' : 'Pendente'}</p>
                 <p class="muted">Forma de pagamento: ${parcela.forma_pagamento || 'Ainda não definida'}</p>
