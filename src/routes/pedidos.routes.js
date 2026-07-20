@@ -148,6 +148,95 @@ router.patch('/:id/status', autenticar, async (req, res) => {
   res.json(data);
 });
 
+// NOVA ROTA: define (ou redefine) o parcelamento de um pedido - à vista
+// (1 parcela) ou a prazo (N parcelas), gerando o boleto de cada parcela.
+//
+// Por que ela precisou existir: a única forma de criar parcelas era pelo
+// PATCH /:id/status acima, e só quando o pedido ainda não tinha NENHUMA
+// parcela. Só que todo pedido já nasce com 1 parcela (criada no checkout,
+// em finalizar_pedido), então esse caminho nunca era usado na prática -
+// não tinha como o vendedor transformar um pedido em um parcelamento a
+// prazo depois de criado. Esta rota resolve isso, sem se misturar com
+// "dar baixa" (que continua sendo feito parcela por parcela, em
+// PATCH /:id/parcela/:parcelaId logo abaixo).
+router.post('/:id/parcelamento', autenticar, async (req, res) => {
+  if (!supabaseAdmin) {
+    return res.status(503).json({ erro: 'Supabase não configurado. Configure o projeto no .env.' });
+  }
+
+  const numeroParcelas = Math.max(1, Math.min(36, parseInt(req.body.parcelas, 10) || 1));
+  const intervalo = Math.max(1, parseInt(req.body.intervalo_dias, 10) || 30);
+  const formaEscolhida = req.body.forma_pagamento || (numeroParcelas > 1 ? 'A prazo' : 'Dinheiro');
+
+  // Confirma que quem está pedindo é o DONO da loja deste pedido. Isso é
+  // essencial aqui: pedido_parcelas não tem policy de insert/delete no
+  // RLS (só select/update), então usamos o cliente admin abaixo para
+  // recriar as parcelas - e por isso essa checagem manual substitui o
+  // que o RLS faria.
+  const { data: pedido, error: erroPedido } = await supabaseAdmin
+    .from('pedidos')
+    .select('id, total, loja_id, lojas!inner(dono_id)')
+    .eq('id', req.params.id)
+    .single();
+
+  if (erroPedido || !pedido) return res.status(404).json({ erro: 'Pedido não encontrado.' });
+  if (pedido.lojas.dono_id !== req.usuario.id) {
+    return res.status(403).json({ erro: 'Você não é o dono da loja deste pedido.' });
+  }
+
+  const { data: parcelasAtuais, error: erroParcelas } = await supabaseAdmin
+    .from('pedido_parcelas')
+    .select('id, status')
+    .eq('pedido_id', req.params.id);
+
+  if (erroParcelas) return res.status(400).json({ erro: erroParcelas.message });
+
+  if (parcelasAtuais?.some((p) => p.status === 'pago')) {
+    return res.status(400).json({
+      erro: 'Este pedido já tem parcela(s) paga(s) — não é possível redefinir o parcelamento. Dê baixa parcela por parcela.'
+    });
+  }
+
+  const total = Number(pedido.total) || 0;
+  const valorBase = Math.round((total / numeroParcelas) * 100) / 100;
+  let acumulado = 0;
+  const novasLinhas = [];
+
+  for (let numero = 1; numero <= numeroParcelas; numero++) {
+    const valor = numero < numeroParcelas ? valorBase : Number((total - acumulado).toFixed(2));
+    acumulado += valor;
+    novasLinhas.push({
+      pedido_id: req.params.id,
+      numero,
+      valor,
+      status: 'pendente',
+      ...gerarDadosBoletoParcela({ pedidoId: req.params.id, numero, valor, diasPrazo: intervalo })
+    });
+  }
+
+  if (parcelasAtuais?.length) {
+    const { error: erroDelete } = await supabaseAdmin
+      .from('pedido_parcelas')
+      .delete()
+      .eq('pedido_id', req.params.id);
+    if (erroDelete) return res.status(400).json({ erro: erroDelete.message });
+  }
+
+  const { data: parcelasCriadas, error: erroInsert } = await supabaseAdmin
+    .from('pedido_parcelas')
+    .insert(novasLinhas)
+    .select();
+
+  if (erroInsert) return res.status(400).json({ erro: erroInsert.message });
+
+  await supabaseAdmin
+    .from('pedidos')
+    .update({ forma_pagamento: formaEscolhida, parcelas: numeroParcelas })
+    .eq('id', req.params.id);
+
+  res.status(201).json({ parcelas: parcelasCriadas });
+});
+
 router.patch('/:id/parcela/:parcelaId', autenticar, async (req, res) => {
   const { status, forma_pagamento, pago_em } = req.body;
   const validStatus = ['pendente', 'pago'];
