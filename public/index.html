@@ -1785,58 +1785,61 @@
       // somenteLeitura=true é usado na tela "Pedidos" do CLIENTE (Compras):
       // o comprador não deve poder registrar o próprio pagamento como
       // recebido — isso é uma ação do vendedor, feita em "Contas a receber".
+      // BUG CORRIGIDO: este painel se chamava "Baixa do pedido" e o botão
+      // "Marcar como pago" chamava PATCH /:id/status - que ou criava
+      // parcelas novas (só quando o pedido não tinha NENHUMA ainda, o que
+      // nunca acontece de verdade, já que todo pedido nasce com 1 parcela
+      // no checkout) ou marcava TODAS as parcelas existentes como pagas de
+      // uma vez. Ou seja: não tinha como transformar um pedido em um
+      // parcelamento "a prazo" depois de criado, e ainda por cima corria o
+      // risco de dar baixa em tudo sem querer.
+      //
+      // Agora este painel vira "Definir forma de pagamento": só serve para
+      // ESCOLHER à vista ou a prazo (com N parcelas) e GERAR os boletos de
+      // cada parcela (rota nova: POST /:id/parcelamento). Ele nunca marca
+      // nada como pago - isso continua sendo feito parcela por parcela, no
+      // painel de parcelas logo abaixo (renderParcelasPedido).
       function renderBaixaPedido(pedido, somenteLeitura = false) {
         if (somenteLeitura) return '';
         if (pedido.status === 'concluido') return '';
 
-        // BUG CORRIGIDO: quando o pedido já tem parcelas (o que acontece
-        // desde a criação, via finalizar_pedido), este painel de "baixa em
-        // bloco" ficava visível ao lado do painel de parcelas individuais.
-        // Usar o botão "Marcar como pago" aqui chama PATCH /:id/status, que
-        // só cria parcelas novas quando forma_pagamento é 'A prazo' E o
-        // campo de parcelas é preenchido — em qualquer outro caso (ex:
-        // deixar no "Dinheiro" padrão), ele marca TODAS as parcelas
-        // existentes como pagas de uma vez. Por isso, se as parcelas já
-        // existem, esse painel não aparece mais: a única forma de dar baixa
-        // passa a ser uma por uma, no painel de parcelas abaixo.
-        const parcelasExistentes = Array.isArray(pedido.pedido_parcelas) ? pedido.pedido_parcelas : [];
-        if (parcelasExistentes.length > 0) return '';
-
-        const hoje = new Date().toISOString().split('T')[0];
+        const parcelas = Array.isArray(pedido.pedido_parcelas) ? pedido.pedido_parcelas : [];
+        // Se alguma parcela já foi paga, não dá pra redefinir o
+        // parcelamento (o backend também bloqueia isso) - só resta dar
+        // baixa nas que faltam, uma por uma.
+        if (parcelas.some((parcela) => parcela.status === 'pago')) return '';
 
         return `
           <div class="card" style="margin-top:10px; padding:12px; border:1px solid var(--sb-border); border-radius:10px; background:var(--sb-elevated);">
-            <p class="muted" style="margin:0 0 8px;"><strong>Baixa do pedido</strong></p>
+            <p class="muted" style="margin:0 0 8px;"><strong>Definir forma de pagamento</strong></p>
+            <p class="muted" style="margin:0 0 8px;">Escolha à vista ou a prazo e gere os boletos de cada parcela. Isso não marca nada como pago — a baixa é feita parcela por parcela, abaixo.</p>
             <div class="field">
-              <label>Método de recebimento</label>
-              <select id="pedidoMetodo-${pedido.id}">
-                <option value="Dinheiro">Dinheiro</option>
-                <option value="Pix">Pix</option>
-                <option value="Cartão">Cartão</option>
-                <option value="WhatsApp">WhatsApp</option>
-                <option value="A prazo">A prazo</option>
+              <label>Forma de pagamento</label>
+              <select id="pedidoMetodo-${pedido.id}" onchange="document.getElementById('pedidoParcelasWrap-${pedido.id}').style.display = this.value === 'A prazo' ? '' : 'none';">
+                <option value="Dinheiro">Dinheiro (à vista)</option>
+                <option value="Pix">Pix (à vista)</option>
+                <option value="Cartão">Cartão (à vista)</option>
+                <option value="A prazo">A prazo (várias parcelas)</option>
               </select>
             </div>
-            <div class="field">
-              <label>Data da baixa</label>
-              <input type="date" id="pedidoData-${pedido.id}" value="${hoje}" />
-            </div>
-            <div class="field">
-              <label>Número de parcelas</label>
-              <input type="number" min="1" id="pedidoParcelas-${pedido.id}" value="${pedido.parcelas || 1}" />
-            </div>
-            <div class="field">
-              <label>Intervalo de vencimento (dias)</label>
-              <select id="pedidoIntervalo-${pedido.id}">
-                <option value="30">30 dias</option>
-                <option value="60">60 dias</option>
-                <option value="90">90 dias</option>
-                <option value="120">120 dias</option>
-                <option value="150">150 dias</option>
-              </select>
+            <div id="pedidoParcelasWrap-${pedido.id}" style="display:none;">
+              <div class="field-row">
+                <div class="field">
+                  <label>Número de parcelas</label>
+                  <input type="number" min="2" max="36" id="pedidoParcelas-${pedido.id}" value="${pedido.parcelas > 1 ? pedido.parcelas : 3}" />
+                </div>
+                <div class="field">
+                  <label>Intervalo entre vencimentos (dias)</label>
+                  <select id="pedidoIntervalo-${pedido.id}">
+                    <option value="30">30 dias</option>
+                    <option value="60">60 dias</option>
+                    <option value="90">90 dias</option>
+                  </select>
+                </div>
+              </div>
             </div>
             <div class="row" style="margin-top:8px; justify-content:flex-end;">
-              <button class="btn-primary" type="button" onclick="window.atualizarStatusPedido('${pedido.id}', 'concluido')">Marcar como pago</button>
+              <button class="btn-primary" type="button" onclick="window.definirParcelamento('${pedido.id}')">Gerar boletos / confirmar</button>
             </div>
           </div>
         `;
@@ -2016,6 +2019,43 @@
         `).join('');
         await carregarDashboard();
       }
+
+      window.definirParcelamento = async (pedidoId) => {
+        if (!state.usuario || !state.token) return alert('Faça login para continuar.');
+
+        const select = document.getElementById(`pedidoMetodo-${pedidoId}`);
+        const formaPagamento = select?.value || 'Dinheiro';
+        const ehAPrazo = formaPagamento === 'A prazo';
+
+        const parcelasInput = document.getElementById(`pedidoParcelas-${pedidoId}`);
+        const intervaloInput = document.getElementById(`pedidoIntervalo-${pedidoId}`);
+
+        const payload = {
+          forma_pagamento: formaPagamento,
+          parcelas: ehAPrazo ? Math.max(2, Number(parcelasInput?.value) || 3) : 1,
+          intervalo_dias: ehAPrazo ? Number(intervaloInput?.value || 30) : 30
+        };
+
+        const response = await fetch(`/pedidos/${pedidoId}/parcelamento`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (!response.ok) return alert(result.erro || 'Não foi possível definir o parcelamento.');
+
+        await carregarPedidosRecebidos();
+        const paginaAtualParcelamento = window.location.hash.replace('#', '');
+        if (paginaAtualParcelamento === 'pedidos') await carregarPedidos();
+        if (paginaAtualParcelamento === 'contas-a-receber') await carregarContasAReceber();
+        if (paginaAtualParcelamento === 'contas-pagas') await carregarContasPagas();
+
+        alert(
+          ehAPrazo
+            ? `Parcelamento gerado: ${payload.parcelas}x, com boleto pronto pra baixar em cada parcela abaixo.`
+            : 'Forma de pagamento confirmada. Quando o cliente pagar, registre a baixa na parcela abaixo.'
+        );
+      };
 
       window.atualizarStatusPedido = async (pedidoId, status) => {
         if (!state.usuario || !state.token) return alert('Faça login para atualizar pedidos.');
